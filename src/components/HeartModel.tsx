@@ -1,26 +1,17 @@
-import { Suspense, useCallback, useEffect, useRef, useState } from 'react'
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  Color,
-  type Group,
-  type Material,
+  AdditiveBlending,
+  BackSide,
+  BoxGeometry,
+  Group,
   Mesh,
   MeshBasicMaterial,
-  MeshLambertMaterial,
-  MeshPhongMaterial,
-  MeshPhysicalMaterial,
-  MeshStandardMaterial,
+  Vector3,
 } from 'three'
-import { Canvas, useFrame } from '@react-three/fiber'
-import { Center, OrbitControls, useCursor, useGLTF } from '@react-three/drei'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
+import { AdaptiveDpr, Center, Html, Line, OrbitControls, useCursor, useGLTF } from '@react-three/drei'
 
-const MODEL_URL = '/heart-model/scene.gltf'
-
-/** Meshes treated as the left ventricle wall for the doctor-note OCR highlight. */
-export const LEFT_VENTRICLE_GLOW_MESH_NAMES = [
-  'Object_6',
-  'Object_7',
-  'Object_8',
-] as const
+const MODEL_URL = '/heart-model/scene.quality.glb'
 
 export type MeshSelectPayload = {
   label: string
@@ -76,6 +67,53 @@ const HEART_REGION_PAYLOAD: MeshSelectPayload = {
   doctorQuestions: DEFAULT_DOCTOR_QUESTIONS,
 }
 
+type HeartCalloutDef = {
+  key: string
+  label: string
+  meshName: string
+  offset: [number, number, number]
+}
+
+type HeartCalloutAnchor = {
+  key: string
+  label: string
+  position: Vector3
+  labelPosition: Vector3
+}
+
+const HEART_CALLOUT_DEFS: HeartCalloutDef[] = [
+  {
+    key: 'heart-muscle',
+    label: 'Heart Muscle',
+    meshName: 'Object_7',
+    offset: [-0.34, 0.16, 0.06],
+  },
+  {
+    key: 'coronary-artery',
+    label: 'Coronary Artery',
+    meshName: 'Object_18',
+    offset: [0.32, 0.14, 0.08],
+  },
+  {
+    key: 'cardiac-vein',
+    label: 'Cardiac Vein',
+    meshName: 'Object_29',
+    offset: [-0.32, -0.1, 0.08],
+  },
+  {
+    key: 'aorta',
+    label: 'Aorta',
+    meshName: 'Object_35',
+    offset: [0.28, 0.26, 0.06],
+  },
+  {
+    key: 'pulmonary-artery',
+    label: 'Pulmonary Artery',
+    meshName: 'Object_39',
+    offset: [-0.28, 0.32, 0.06],
+  },
+]
+
 function meshSelectPayloadFromName(meshName: string): MeshSelectPayload {
   const match = /^Object_(\d+)$/i.exec(meshName.trim())
   if (!match) return HEART_REGION_PAYLOAD
@@ -89,198 +127,222 @@ function meshSelectPayloadFromName(meshName: string): MeshSelectPayload {
   return HEART_REGION_PAYLOAD
 }
 
-function cloneMaterial(m: Material | Material[]): Material | Material[] {
-  return Array.isArray(m) ? m.map((x) => x.clone()) : m.clone()
+function buildCalloutAnchors(scene: Group): HeartCalloutAnchor[] {
+  const visualMeshes = new Map<string, Mesh>()
+  scene.updateWorldMatrix(true, true)
+  scene.traverse((obj) => {
+    if ((obj as Mesh).isMesh && !obj.userData.heartPickProxy) {
+      visualMeshes.set(obj.name, obj as Mesh)
+    }
+  })
+
+  return HEART_CALLOUT_DEFS.flatMap((def) => {
+    const mesh = visualMeshes.get(def.meshName)
+    if (!mesh) return []
+
+    mesh.geometry.computeBoundingBox()
+    const box = mesh.geometry.boundingBox
+    if (!box || box.isEmpty()) return []
+
+    const position = new Vector3()
+    box.getCenter(position)
+    mesh.localToWorld(position)
+    scene.worldToLocal(position)
+
+    return [
+      {
+        key: def.key,
+        label: def.label,
+        position,
+        labelPosition: position.clone().add(new Vector3(...def.offset)),
+      },
+    ]
+  })
 }
 
-function glowifyMaterial(mat: Material): Material {
-  const c = mat.clone()
-  if (
-    c instanceof MeshStandardMaterial ||
-    c instanceof MeshPhysicalMaterial
-  ) {
-    c.emissive.set('#E88080')
-    c.emissiveIntensity = 0.6
-    return c
-  }
-  if (c instanceof MeshLambertMaterial || c instanceof MeshPhongMaterial) {
-    c.emissive.set('#E88080')
-    c.emissiveIntensity = 0.6
-    return c
-  }
-  if (c instanceof MeshBasicMaterial) {
-    const col = c.color.clone()
-    col.lerp(new Color('#E88080'), 0.35)
-    c.color.copy(col)
-    return c
-  }
-  return c
+function HeartCallouts({
+  anchors,
+}: {
+  anchors: HeartCalloutAnchor[]
+}) {
+  return anchors.map((anchor) => (
+    <group key={anchor.key}>
+      <Line
+        points={[anchor.position, anchor.labelPosition]}
+        color="#ffb3c1"
+        lineWidth={1.35}
+        transparent
+        opacity={0.78}
+      />
+      <mesh position={anchor.position}>
+        <sphereGeometry args={[0.012, 12, 12]} />
+        <meshBasicMaterial color="#ffd1d8" transparent opacity={0.92} />
+      </mesh>
+      <Html
+        center
+        position={anchor.labelPosition}
+        style={{ pointerEvents: 'none', userSelect: 'none' }}
+      >
+        <div className="rounded-full border border-white/25 bg-[#2a0d12]/75 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-rose-50 shadow-[0_0_20px_rgba(255,112,145,0.35)] backdrop-blur-md whitespace-nowrap">
+          {anchor.label}
+        </div>
+      </Html>
+    </group>
+  ))
 }
 
-function restoreMesh(mesh: Mesh, originals: Map<Mesh, Material | Material[]>) {
-  const orig = originals.get(mesh)
-  if (!orig) return
-  mesh.material = cloneMaterial(orig)
-}
+function SelectedMeshGlow({
+  mesh,
+}: {
+  mesh: Mesh | null
+}) {
+  useEffect(() => {
+    if (!mesh) return
 
-function applyGlowMaterial(
-  mesh: Mesh,
-  originals: Map<Mesh, Material | Material[]>,
-) {
-  if (!originals.has(mesh)) {
-    originals.set(mesh, cloneMaterial(mesh.material))
-  }
-  const template = originals.get(mesh)!
-  const branch = cloneMaterial(template)
-  mesh.material = Array.isArray(branch)
-    ? branch.map(glowifyMaterial)
-    : glowifyMaterial(branch as Material)
+    const material = new MeshBasicMaterial({
+      blending: AdditiveBlending,
+      color: '#ff4f75',
+      depthWrite: false,
+      opacity: 0.42,
+      side: BackSide,
+      transparent: true,
+    })
+    const glow = new Mesh(mesh.geometry, material)
+    glow.name = `${mesh.name}_selected_glow`
+    glow.userData.heartSelectedGlow = true
+    glow.renderOrder = 2
+    glow.scale.setScalar(1.022)
+    glow.raycast = () => null
+    mesh.add(glow)
+
+    return () => {
+      glow.parent?.remove(glow)
+      material.dispose()
+    }
+  }, [mesh])
+
+  return null
 }
 
 type HeartMeshProps = {
-  selected: Mesh | null
-  setSelected: (m: Mesh | null) => void
   onSelect: (payload: MeshSelectPayload | null) => void
-  forcedGlowMeshNames: readonly string[] | null
+  selectedMesh: Mesh | null
+  onSelectMesh: (mesh: Mesh) => void
 }
 
 function HeartMesh({
-  selected,
-  setSelected,
   onSelect,
-  forcedGlowMeshNames,
+  selectedMesh,
+  onSelectMesh,
 }: HeartMeshProps) {
   const gltf = useGLTF(MODEL_URL)
+  const regressPerformance = useThree((state) => state.performance.regress)
   const spinRef = useRef<Group>(null)
-  const originalsRef = useRef(new Map<Mesh, Material | Material[]>())
+  const proxyToMeshRef = useRef(new WeakMap<Mesh, Mesh>())
   const hoverRef = useRef<Mesh | null>(null)
-  /** Single-mesh glow from hover / click selection (disabled while forced glow is active). */
-  const interactiveGlowRef = useRef<Mesh | null>(null)
-  const forcedGlowMeshesRef = useRef(new Set<Mesh>())
   const [cursorHover, setCursorHover] = useState(false)
+  const calloutAnchors = useMemo(
+    () => buildCalloutAnchors(gltf.scene),
+    [gltf.scene],
+  )
   useCursor(cursorHover)
 
-  const clearForcedGlowMeshes = useCallback(() => {
-    const originalsMap = originalsRef.current
-    forcedGlowMeshesRef.current.forEach((m) => {
-      restoreMesh(m, originalsMap)
-    })
-    forcedGlowMeshesRef.current.clear()
-  }, [])
-
-  const applyInteractiveGlow = useCallback(
-    (mesh: Mesh | null) => {
-      if (interactiveGlowRef.current === mesh) return
-      const originalsMap = originalsRef.current
-      if (interactiveGlowRef.current) {
-        restoreMesh(interactiveGlowRef.current, originalsMap)
-      }
-      interactiveGlowRef.current = mesh
-      if (mesh) {
-        applyGlowMaterial(mesh, originalsMap)
-      }
-    },
-    [],
-  )
-
-  const syncInteractiveGlow = useCallback(
-    (hovered: Mesh | null, sel: Mesh | null) => {
-      if (forcedGlowMeshNames?.length) return
-      const target = hovered ?? sel
-      applyInteractiveGlow(target)
-    },
-    [applyInteractiveGlow, forcedGlowMeshNames],
-  )
-
   useEffect(() => {
     const scene = gltf.scene
-    const originalsMap = originalsRef.current
+    const proxyToMesh = proxyToMeshRef.current
+    const proxyMaterial = new MeshBasicMaterial({
+      colorWrite: false,
+      depthWrite: false,
+      opacity: 0,
+      transparent: true,
+    })
+    const originalRaycasts = new Map<Mesh, Mesh['raycast']>()
+    const proxyMeshes: Mesh[] = []
+    const size = new Vector3()
+    const center = new Vector3()
 
-    if (!forcedGlowMeshNames?.length) {
-      clearForcedGlowMeshes()
-      syncInteractiveGlow(hoverRef.current, selected)
-      return
-    }
-
-    const targets: Mesh[] = []
+    const visualMeshes: Mesh[] = []
     scene.traverse((obj) => {
-      if (!(obj as Mesh).isMesh) return
-      const mesh = obj as Mesh
-      if (forcedGlowMeshNames.includes(mesh.name)) targets.push(mesh)
+      if ((obj as Mesh).isMesh && !obj.userData.heartPickProxy) {
+        visualMeshes.push(obj as Mesh)
+      }
     })
 
-    if (interactiveGlowRef.current) {
-      restoreMesh(interactiveGlowRef.current, originalsMap)
-      interactiveGlowRef.current = null
-    }
-    clearForcedGlowMeshes()
+    visualMeshes.forEach((mesh) => {
+      const geometry = mesh.geometry
+      geometry.computeBoundingBox()
+      const box = geometry.boundingBox
+      if (!box || box.isEmpty()) return
 
-    targets.forEach((m) => {
-      applyGlowMaterial(m, originalsMap)
-      forcedGlowMeshesRef.current.add(m)
+      box.getSize(size)
+      box.getCenter(center)
+      const proxyGeometry = new BoxGeometry(size.x, size.y, size.z)
+      proxyGeometry.translate(center.x, center.y, center.z)
+      const proxy = new Mesh(proxyGeometry, proxyMaterial)
+      proxy.name = `${mesh.name}_pick_proxy`
+      proxy.userData.heartPickProxy = true
+      proxy.renderOrder = -1
+      proxyToMesh.set(proxy, mesh)
+      proxyMeshes.push(proxy)
+      originalRaycasts.set(mesh, mesh.raycast)
+      mesh.raycast = () => null
+      mesh.add(proxy)
     })
-  }, [
-    clearForcedGlowMeshes,
-    forcedGlowMeshNames,
-    gltf.scene,
-    selected,
-    syncInteractiveGlow,
-  ])
 
-  useEffect(() => {
-    const scene = gltf.scene
-    const originalsMap = originalsRef.current
     return () => {
-      scene.traverse((obj) => {
-        if ((obj as Mesh).isMesh) {
-          restoreMesh(obj as Mesh, originalsMap)
-        }
+      proxyMeshes.forEach((proxy) => {
+        proxy.parent?.remove(proxy)
+        proxy.geometry.dispose()
       })
-      originalsMap.clear()
-      interactiveGlowRef.current = null
+      proxyMaterial.dispose()
+      originalRaycasts.forEach((raycast, mesh) => {
+        mesh.raycast = raycast
+      })
       hoverRef.current = null
-      forcedGlowMeshesRef.current.clear()
     }
   }, [gltf.scene])
 
-  useFrame((_, delta) => {
+  useFrame((state, delta) => {
     const spin = spinRef.current
     if (!spin) return
-    const now = Date.now()
-    spin.rotation.y += delta * (0.2 + Math.sin(now * 0.0005) * 0.08)
-    spin.position.y = Math.sin(now * 0.0008) * 0.05
+    const elapsed = state.clock.elapsedTime
+    spin.rotation.y += delta * (0.2 + Math.sin(elapsed * 0.5) * 0.08)
+    spin.position.y = Math.sin(elapsed * 0.8) * 0.05
   })
 
   return (
     <Center>
       <group
         onPointerMove={(e) => {
-          const hit = e.intersections.find((i) => (i.object as Mesh).isMesh)
-          const mesh = hit?.object instanceof Mesh ? hit.object : null
-          if (mesh !== hoverRef.current) {
-            hoverRef.current = mesh
-            setCursorHover(mesh !== null)
-            syncInteractiveGlow(mesh, selected)
-          }
+          regressPerformance()
+          const mesh =
+            e.object instanceof Mesh
+              ? proxyToMeshRef.current.get(e.object) ?? null
+              : null
+          if (mesh === hoverRef.current) return
+          hoverRef.current = mesh
+          setCursorHover(mesh !== null)
         }}
         onPointerLeave={() => {
           hoverRef.current = null
           setCursorHover(false)
-          syncInteractiveGlow(null, selected)
         }}
         onClick={(e) => {
-          const hit = e.intersections.find((i) => (i.object as Mesh).isMesh)
-          if (!hit || !(hit.object instanceof Mesh)) return
-          const mesh = hit.object
-          const payload = meshSelectPayloadFromName(mesh.name)
-          setSelected(mesh)
-          onSelect(payload)
+          const mesh =
+            e.object instanceof Mesh
+              ? proxyToMeshRef.current.get(e.object) ?? null
+              : null
+          if (!mesh) return
+          onSelectMesh(mesh)
+          onSelect(meshSelectPayloadFromName(mesh.name))
           e.stopPropagation()
         }}
       >
         <group ref={spinRef}>
           <primitive object={gltf.scene} />
+          <HeartCallouts anchors={calloutAnchors} />
         </group>
+        <SelectedMeshGlow mesh={selectedMesh} />
       </group>
     </Center>
   )
@@ -290,17 +352,15 @@ useGLTF.preload(MODEL_URL)
 
 type HeartModelProps = {
   onSelect: (payload: MeshSelectPayload | null) => void
-  forcedGlowMeshNames?: readonly string[] | null
 }
 
 export default function HeartModel({
   onSelect,
-  forcedGlowMeshNames = null,
 }: HeartModelProps) {
-  const [selected, setSelected] = useState<Mesh | null>(null)
+  const [selectedMesh, setSelectedMesh] = useState<Mesh | null>(null)
 
   const handlePointerMissed = () => {
-    setSelected(null)
+    setSelectedMesh(null)
     onSelect(null)
   }
 
@@ -309,34 +369,33 @@ export default function HeartModel({
       <Canvas
         className="h-full w-full touch-none"
         camera={{ position: [0, 0.08, 1.35], fov: 42 }}
-        gl={{ antialias: true }}
+        dpr={[0.75, 1.25]}
+        gl={{ antialias: true, powerPreference: 'high-performance' }}
         onPointerMissed={handlePointerMissed}
       >
         <color attach="background" args={['#1a0a0a']} />
-        <ambientLight intensity={1.8} />
+        <ambientLight intensity={1.65} />
         <pointLight
           color="#FFB3B3"
           position={[1.25, 1.6, 2.2]}
-          intensity={1.15}
+          intensity={1.4}
           distance={14}
           decay={2}
         />
-        <pointLight color="#FFB3B3" intensity={4} position={[5, 5, 5]} />
-        <pointLight color="#ffffff" intensity={3} position={[-5, 3, 5]} />
         <directionalLight
           color="#ffffff"
-          intensity={2}
+          intensity={1.75}
           position={[0, 5, 10]}
         />
         <Suspense fallback={null}>
           <HeartMesh
-            selected={selected}
-            setSelected={setSelected}
             onSelect={onSelect}
-            forcedGlowMeshNames={forcedGlowMeshNames ?? null}
+            selectedMesh={selectedMesh}
+            onSelectMesh={setSelectedMesh}
           />
         </Suspense>
-        <OrbitControls enableDamping makeDefault />
+        <AdaptiveDpr />
+        <OrbitControls makeDefault />
       </Canvas>
     </div>
   )

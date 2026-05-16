@@ -7,10 +7,7 @@ import {
   type CSSProperties,
 } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import HeartModel, {
-  LEFT_VENTRICLE_GLOW_MESH_NAMES,
-  type MeshSelectPayload,
-} from './components/HeartModel'
+import HeartModel, { type MeshSelectPayload } from './components/HeartModel'
 
 const BG = '#1a0a0a'
 const PARTICLE_DURATION_S = 2.5
@@ -338,6 +335,7 @@ export default function App() {
     setShowDoctorNoteUpload(false)
     setDoctorNoteOcrLoading(true)
     setDoctorNoteOcrResult(null)
+    setHeartInteractive(false)
     if (readDoctorNoteTimerRef.current) {
       window.clearTimeout(readDoctorNoteTimerRef.current)
     }
@@ -403,11 +401,7 @@ export default function App() {
   }, [heartReveal])
 
   useEffect(() => {
-    if (!heartReveal) return
-    if (doctorNoteOcrLoading || pregnancyRiskAnalyzing) {
-      setHeartInteractive(false)
-      return
-    }
+    if (!heartReveal || doctorNoteOcrLoading || pregnancyRiskAnalyzing) return
     const t = window.setTimeout(
       () => setHeartInteractive(true),
       HEART_FADE_DURATION_S * 1000,
@@ -510,15 +504,7 @@ export default function App() {
             ease: 'easeInOut',
           }}
         >
-          <HeartModel
-            onSelect={setMeshInfo}
-            forcedGlowMeshNames={
-              doctorNoteOcrResult ||
-              pregnancyRiskResult?.risk_tier === 'high'
-                ? LEFT_VENTRICLE_GLOW_MESH_NAMES
-                : null
-            }
-          />
+          <HeartModel onSelect={setMeshInfo} />
         </motion.div>
       </motion.div>
 
