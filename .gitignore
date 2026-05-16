@@ -25,3 +25,4 @@ dist-ssr
 
 # GLTF binary exceeds GitHub's 100 MB limit — keep locally or use Git LFS
 public/heart-model/scene.bin
+.env
