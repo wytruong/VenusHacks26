@@ -15,6 +15,13 @@ import { Center, OrbitControls, useCursor, useGLTF } from '@react-three/drei'
 
 const MODEL_URL = '/heart-model/scene.gltf'
 
+/** Meshes treated as the left ventricle wall for the doctor-note OCR highlight. */
+export const LEFT_VENTRICLE_GLOW_MESH_NAMES = [
+  'Object_6',
+  'Object_7',
+  'Object_8',
+] as const
+
 export type MeshSelectPayload = {
   label: string
   description: string
@@ -134,32 +141,91 @@ type HeartMeshProps = {
   selected: Mesh | null
   setSelected: (m: Mesh | null) => void
   onSelect: (payload: MeshSelectPayload | null) => void
+  forcedGlowMeshNames: readonly string[] | null
 }
 
-function HeartMesh({ selected, setSelected, onSelect }: HeartMeshProps) {
+function HeartMesh({
+  selected,
+  setSelected,
+  onSelect,
+  forcedGlowMeshNames,
+}: HeartMeshProps) {
   const gltf = useGLTF(MODEL_URL)
   const spinRef = useRef<Group>(null)
   const originalsRef = useRef(new Map<Mesh, Material | Material[]>())
   const hoverRef = useRef<Mesh | null>(null)
-  const glowingRef = useRef<Mesh | null>(null)
+  /** Single-mesh glow from hover / click selection (disabled while forced glow is active). */
+  const interactiveGlowRef = useRef<Mesh | null>(null)
+  const forcedGlowMeshesRef = useRef(new Set<Mesh>())
   const [cursorHover, setCursorHover] = useState(false)
   useCursor(cursorHover)
 
-  const syncGlow = useCallback((hovered: Mesh | null, sel: Mesh | null) => {
-    const target = hovered ?? sel
-    if (glowingRef.current === target) return
-    if (glowingRef.current) {
-      restoreMesh(glowingRef.current, originalsRef.current)
-    }
-    glowingRef.current = target
-    if (target) {
-      applyGlowMaterial(target, originalsRef.current)
-    }
+  const clearForcedGlowMeshes = useCallback(() => {
+    const originalsMap = originalsRef.current
+    forcedGlowMeshesRef.current.forEach((m) => {
+      restoreMesh(m, originalsMap)
+    })
+    forcedGlowMeshesRef.current.clear()
   }, [])
 
+  const applyInteractiveGlow = useCallback(
+    (mesh: Mesh | null) => {
+      if (interactiveGlowRef.current === mesh) return
+      const originalsMap = originalsRef.current
+      if (interactiveGlowRef.current) {
+        restoreMesh(interactiveGlowRef.current, originalsMap)
+      }
+      interactiveGlowRef.current = mesh
+      if (mesh) {
+        applyGlowMaterial(mesh, originalsMap)
+      }
+    },
+    [],
+  )
+
+  const syncInteractiveGlow = useCallback(
+    (hovered: Mesh | null, sel: Mesh | null) => {
+      if (forcedGlowMeshNames?.length) return
+      const target = hovered ?? sel
+      applyInteractiveGlow(target)
+    },
+    [applyInteractiveGlow, forcedGlowMeshNames],
+  )
+
   useEffect(() => {
-    syncGlow(hoverRef.current, selected)
-  }, [selected, syncGlow])
+    const scene = gltf.scene
+    const originalsMap = originalsRef.current
+
+    if (!forcedGlowMeshNames?.length) {
+      clearForcedGlowMeshes()
+      syncInteractiveGlow(hoverRef.current, selected)
+      return
+    }
+
+    const targets: Mesh[] = []
+    scene.traverse((obj) => {
+      if (!(obj as Mesh).isMesh) return
+      const mesh = obj as Mesh
+      if (forcedGlowMeshNames.includes(mesh.name)) targets.push(mesh)
+    })
+
+    if (interactiveGlowRef.current) {
+      restoreMesh(interactiveGlowRef.current, originalsMap)
+      interactiveGlowRef.current = null
+    }
+    clearForcedGlowMeshes()
+
+    targets.forEach((m) => {
+      applyGlowMaterial(m, originalsMap)
+      forcedGlowMeshesRef.current.add(m)
+    })
+  }, [
+    clearForcedGlowMeshes,
+    forcedGlowMeshNames,
+    gltf.scene,
+    selected,
+    syncInteractiveGlow,
+  ])
 
   useEffect(() => {
     const scene = gltf.scene
@@ -171,8 +237,9 @@ function HeartMesh({ selected, setSelected, onSelect }: HeartMeshProps) {
         }
       })
       originalsMap.clear()
-      glowingRef.current = null
+      interactiveGlowRef.current = null
       hoverRef.current = null
+      forcedGlowMeshesRef.current.clear()
     }
   }, [gltf.scene])
 
@@ -193,13 +260,13 @@ function HeartMesh({ selected, setSelected, onSelect }: HeartMeshProps) {
           if (mesh !== hoverRef.current) {
             hoverRef.current = mesh
             setCursorHover(mesh !== null)
-            syncGlow(mesh, selected)
+            syncInteractiveGlow(mesh, selected)
           }
         }}
         onPointerLeave={() => {
           hoverRef.current = null
           setCursorHover(false)
-          syncGlow(null, selected)
+          syncInteractiveGlow(null, selected)
         }}
         onClick={(e) => {
           const hit = e.intersections.find((i) => (i.object as Mesh).isMesh)
@@ -223,9 +290,13 @@ useGLTF.preload(MODEL_URL)
 
 type HeartModelProps = {
   onSelect: (payload: MeshSelectPayload | null) => void
+  forcedGlowMeshNames?: readonly string[] | null
 }
 
-export default function HeartModel({ onSelect }: HeartModelProps) {
+export default function HeartModel({
+  onSelect,
+  forcedGlowMeshNames = null,
+}: HeartModelProps) {
   const [selected, setSelected] = useState<Mesh | null>(null)
 
   const handlePointerMissed = () => {
@@ -262,6 +333,7 @@ export default function HeartModel({ onSelect }: HeartModelProps) {
             selected={selected}
             setSelected={setSelected}
             onSelect={onSelect}
+            forcedGlowMeshNames={forcedGlowMeshNames ?? null}
           />
         </Suspense>
         <OrbitControls enableDamping makeDefault />
