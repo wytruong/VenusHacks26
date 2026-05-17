@@ -4,9 +4,11 @@ This backend contains the Python services, scripts, model artifacts, and tests u
 
 Current backend capabilities include:
 
-- FastAPI screening API under `backend/`.
+- FastAPI screening and ECG prototype APIs under `backend/`.
 - Prenatal CVD follow-up prioritization inference under `scripts/maternal/`.
+- Apple Watch Lead I ECG prototype inference under `backend/services/lead1_ecg_runtime.py`.
 - Shipped CDC natality model artifacts under `models/cdc-natality/default/`.
+- Shipped Apple Watch Lead I ECG prototype checkpoint under `models/lead1_dataset_invariance/`.
 - ECG/data normalization scripts and references under `scripts/` and `docs/`.
 - Backend API and agent runtime tests under `tests/`.
 - Service-layer LangChain/deepagents runtime under `backend/services/agents/` for companion chat routes.
@@ -38,12 +40,14 @@ backend/
   schemas/                        Pydantic request schemas
   services/                       Model mapping and service wrappers
     agents/                       LangChain/deepagents runtime, providers, tools, and subagents
+    lead1_ecg_runtime.py          Apple Watch Lead I ECG prototype runtime
 models/
   cdc-natality/default/           Shipped prenatal-cvd model artifacts
   cdc-natality/prenatal_expanded_screening_v3_1_timing_safe/
                                   Prenatal-expanded model artifacts
   cdc-natality/postnatal_followup_v1/
                                   Postnatal-followup model artifacts
+  lead1_dataset_invariance/       Apple Watch Lead I ECG prototype checkpoint
 scripts/
   maternal/                       Maternal screening runtime helpers
   health/                         Dataset health report scripts
@@ -53,6 +57,7 @@ tests/
   test_agent_runtime.py           Deterministic agent runtime/provider/tool tests
   test_prenatal_cvd_api.py        Prenatal-cvd API route and validation tests
   test_maternal_screening_api.py  Prenatal-expanded and postnatal-followup API tests
+  test_apple_watch_ecg_api.py     Apple Watch ECG route and preprocessing tests
 docs/
   normalization-pipeline.md       ECG normalization design
   unified-schema-contract.json    Shared normalization schema contract
@@ -79,14 +84,31 @@ Live backend routes:
 ```text
 GET  /health
 POST /api/agents/chat
+POST /api/ecg/apple-watch/infer
 POST /api/screening/prenatal-cvd
 POST /api/screening/prenatal-expanded
 POST /api/screening/postnatal-followup
 ```
 
-`/api/screening/prenatal-expanded` and `/api/screening/postnatal-followup` are backend-only routes and are not wired to the frontend UI yet.
+`/api/screening/prenatal-expanded` remains backend-only. `/api/screening/postnatal-followup` is wired to the frontend postpartum risk profile flow.
 
 See `API_REFERENCES.md` for request and response examples.
+
+## Apple Watch Lead I ECG Prototype
+
+`POST /api/ecg/apple-watch/infer` accepts either a full Health Auto Export-shaped payload under `healthExport.data.ecg` with `recordIndex`, or a single ECG record under `ecgRecord`. The route runs the copied Lead I prototype checkpoint from:
+
+```text
+models/lead1_dataset_invariance/best_kept_adversarial.pt
+```
+
+Runtime configuration:
+
+- `ECG_LEAD1_CHECKPOINT_PATH` optionally overrides the checkpoint path.
+- `ECG_LEAD1_DEVICE` optionally selects `cpu`, `mps`, or `auto`; default is `cpu`.
+- `ECG_MAX_REQUEST_BYTES` optionally overrides the ECG request body limit; default is 25 MB.
+
+The endpoint returns model probabilities only, excludes raw `voltageMeasurements` from responses, does not persist uploaded ECG JSON, and must include `Predictions are experimental and not clinically validated.` in every successful response. It is not a diagnostic medical device and should not be described as clinically validated.
 
 ## Agent Runtime
 
@@ -121,13 +143,13 @@ The output is a prenatal follow-up priority signal, not a diagnosis and not a di
 Validation and error behavior:
 
 - `pregnancyMode` must be `"prenatal"`.
-- Numeric inputs (`age`, `prepregnancyBmi`, `liveBirthsCount`) accept numbers or numeric strings; empty/non-numeric strings return `422`.
+- Numeric inputs (`age`, calculated `prepregnancyBmi`, `liveBirthsCount`) accept numbers or numeric strings; empty/non-numeric strings return `422`.
 - Boolean inputs are strict booleans (`true`/`false`); `null` returns `422`.
 - Backend model unavailability returns `503` with `{"detail": "Prenatal screening model is unavailable."}`.
 
-## Backend-only Maternal Screening Routes
+## Maternal Screening Routes
 
-The following routes are implemented and tested in the backend, but not wired to frontend UI flows yet:
+The following expanded maternal screening routes are implemented and tested in the backend. Prenatal-expanded remains backend-only; postnatal-followup is used by the frontend postpartum risk profile flow.
 
 - `POST /api/screening/prenatal-expanded`
 - `POST /api/screening/postnatal-followup`
@@ -178,6 +200,7 @@ Focused API tests:
 ```bash
 python -m pytest tests/test_prenatal_cvd_api.py
 python -m pytest tests/test_maternal_screening_api.py
+python -m pytest tests/test_apple_watch_ecg_api.py
 ```
 
 ## Dataset Health Checks
@@ -209,7 +232,7 @@ data/<dataset>/derived/
 ## Guardrails
 
 - Do not edit shipped model artifacts unless explicitly requested.
-- Do not add postpartum endpoint behavior without a postpartum model contract.
+- Do not change postpartum endpoint behavior without keeping the postnatal model contract, tests, and docs aligned.
 - Do not expose local filesystem paths, raw artifact internals, or stack traces in API responses.
 - Keep agent runtime tools and subagents explicitly allowlisted; do not add live provider calls to deterministic tests.
 - Keep raw datasets, virtual environments, caches, and generated bytecode out of commits.

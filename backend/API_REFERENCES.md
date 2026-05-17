@@ -26,9 +26,11 @@ The following backend routes are currently implemented:
 
 - `GET /health`
 - `POST /api/agents/chat`
+- `POST /api/agents/doctor-note-screening`
+- `POST /api/ecg/apple-watch/infer`
 - `POST /api/screening/prenatal-cvd`
 - `POST /api/screening/prenatal-expanded` (backend-only; not wired to frontend UI yet)
-- `POST /api/screening/postnatal-followup` (backend-only; not wired to frontend UI yet)
+- `POST /api/screening/postnatal-followup` (wired to the frontend postpartum risk profile flow)
 
 ## `GET /health`
 
@@ -70,6 +72,21 @@ Source files:
     "doctorScript": "I want to discuss my blood pressure and heart health.",
     "questions": ["What range is safe?"]
   },
+  "doctorNoteScreening": {
+    "status": "processed",
+    "screeningContext": "prenatal",
+    "extractedInput": {"mother_age": 31, "prepregnancy_hypertension": true},
+    "riskResult": {"risk_tier": "high"},
+    "evidence": ["pregnant patient with chronic hypertension"],
+    "missingOrUncertainFields": ["mother_bmi"],
+    "insight": {
+      "title": "Prenatal screening signal",
+      "riskLabel": "HIGH",
+      "summary": "The note supports prenatal screening.",
+      "recommendedFollowup": "High-priority prenatal follow-up",
+      "safetyNote": "Screening aid, not a diagnosis."
+    }
+  },
   "messages": [
     {"role": "user", "content": "What does this mean?"}
   ]
@@ -83,6 +100,7 @@ Fields:
 | `sessionId` | string | Required non-blank client session ID; used to build the runtime thread ID. |
 | `surface` | string | Optional; defaults to `general_health_companion`. Supported values are `general_health_companion` and `maternal_risk`. |
 | `doctorNote` | object | Optional current doctor-note OCR summary; the service formats it as backend-owned runtime context. |
+| `doctorNoteScreening` | object | Optional processed doctor-note screening result; used as backend-owned context for follow-up questions. |
 | `messages` | array | Required non-empty user/assistant chat messages. Frontend callers cannot send system messages. |
 
 Unknown extra fields are ignored by the request schema (`extra="ignore"`).
@@ -110,6 +128,231 @@ Runtime unavailable response:
 }
 ```
 
+## `POST /api/agents/doctor-note-screening`
+
+Uses the existing Venus agent runtime to classify the selected translated demo doctor note as prenatal, postnatal, or none, extract supported model inputs from `englishDemoNote`, validate them with backend schemas, and run deterministic maternal screening services when appropriate. It must not infer eligibility, disease flags, or risk output from demo IDs, CSV order, `group`, `category`, or `conditionCodes`.
+
+Source files:
+
+- Route: `backend/routers/agents.py`
+- Request/response schema: `backend/schemas/doctor_note_screening.py`
+- Service wrapper: `backend/services/doctor_note_screening.py`
+- Agent tools/subagents: `backend/services/agents/`
+
+### Request body
+
+```json
+{
+  "sessionId": "doctor-note-session-1",
+  "record": {
+    "demoId": "cv_001",
+    "patientId": "patient-1",
+    "visitOccurrenceId": "visit-1",
+    "group": "cv_risk",
+    "category": "hypertension",
+    "age": "31",
+    "conditionCodes": "O10",
+    "noteDate": "2026-05-17",
+    "noteTitle": "Translated prenatal note",
+    "englishDemoNote": "31-year-old pregnant patient with chronic hypertension.",
+    "extractedFactors": "hypertension",
+    "summary": "Pregnant patient with hypertension.",
+    "doctorQuestions": "What follow-up do I need?"
+  }
+}
+```
+
+### Response `200`
+
+Processed response example:
+
+```json
+{
+  "status": "processed",
+  "screeningContext": "prenatal",
+  "extractedInput": {"mother_age": 31, "prepregnancy_hypertension": true},
+  "riskResult": {"risk_tier": "high"},
+  "evidence": ["pregnant patient with chronic hypertension"],
+  "missingOrUncertainFields": ["mother_bmi"],
+  "insight": {
+    "title": "Prenatal screening signal",
+    "riskLabel": "HIGH",
+    "summary": "The selected note contained enough context to run maternal screening.",
+    "recommendedFollowup": "High-priority prenatal follow-up",
+    "safetyNote": "This is a follow-up prioritization aid, not a diagnosis. Clinical judgment should guide care decisions."
+  }
+}
+```
+
+No-context and extraction-failed outcomes also return `200` with `status` set to `no_screening_context` or `extraction_failed` and no model execution.
+
+### Error responses
+
+- `422`: invalid request body, blank session ID, or blank `englishDemoNote`.
+- `503`: agent provider configuration, runtime invocation, or screening runtime unavailable.
+
+Runtime unavailable response:
+
+```json
+{
+  "detail": "Doctor-note screening service is unavailable."
+}
+```
+
+## `POST /api/ecg/apple-watch/infer`
+
+Runs the Apple Watch Lead I ECG prototype checkpoint against uploaded ECG samples and returns model probabilities. Predictions are experimental and not clinically validated. This endpoint is not a diagnostic medical device and must not be used to conclude that a user's heart is normal or abnormal.
+
+Source files:
+
+- Route: `backend/routers/ecg.py`
+- Request schema: `backend/schemas/ecg.py`
+- Service wrapper: `backend/services/apple_watch_ecg.py`
+- Runtime/model architecture: `backend/services/lead1_ecg_runtime.py`
+- Checkpoint: `models/lead1_dataset_invariance/best_kept_adversarial.pt`
+
+### Request body
+
+The endpoint accepts either a full Health Auto Export-shaped payload:
+
+```json
+{
+  "healthExport": {
+    "data": {
+      "ecg": [
+        {
+          "start": "2026-05-17T10:00:00Z",
+          "end": "2026-05-17T10:00:30Z",
+          "classification": "Sinus Rhythm",
+          "averageHeartRate": 66,
+          "samplingFrequency": 512,
+          "numberOfVoltageMeasurements": 15360,
+          "source": "ECG",
+          "voltageMeasurements": [
+            {"date": 0, "voltage": 0.0, "units": "mcV"}
+          ]
+        }
+      ]
+    }
+  },
+  "recordIndex": 0,
+  "windowPolicy": "sliding",
+  "threshold": 0.5
+}
+```
+
+or a single ECG record:
+
+```json
+{
+  "ecgRecord": {
+    "start": "2026-05-17T10:00:00Z",
+    "end": "2026-05-17T10:00:30Z",
+    "classification": "Sinus Rhythm",
+    "averageHeartRate": 66,
+    "samplingFrequency": 512,
+    "numberOfVoltageMeasurements": 15360,
+    "source": "ECG",
+    "voltageMeasurements": [
+      {"date": 0, "voltage": 0.0, "units": "mcV"}
+    ]
+  },
+  "windowPolicy": "sliding",
+  "threshold": 0.5
+}
+```
+
+Fields:
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `healthExport` | object | Full Health Auto Export-style payload. Must contain non-empty `data.ecg`. Mutually exclusive with `ecgRecord`. |
+| `ecgRecord` | object | Single ECG record object. Mutually exclusive with `healthExport`. |
+| `recordIndex` | integer | Required with `healthExport`; selects the ECG record from `data.ecg`. |
+| `windowPolicy` | string | Optional; `first` or `sliding`. Defaults to `first`. |
+| `threshold` | number | Optional probability threshold between `0` and `1`. Defaults to `0.5`. |
+| `voltageMeasurements` | array | Required non-empty ECG waveform samples. Raw values are processed but never returned. |
+
+Preprocessing behavior:
+
+- Converts `voltageMeasurements[*].voltage` to `float32`.
+- Replaces non-finite waveform values with `0.0` before inference.
+- Resamples from the source `samplingFrequency` to the checkpoint sampling rate, currently 500 Hz.
+- Creates 10-second / 5000-sample windows from the resampled Lead I signal.
+- Pads short windows with zeros.
+- Normalizes each window by mean-centering and dividing by `std + 1e-6`.
+
+### Response `200`
+
+Raw waveform values are excluded from the response.
+
+```json
+{
+  "record_index": 0,
+  "record_metadata": {
+    "start": "2026-05-17T10:00:00Z",
+    "end": "2026-05-17T10:00:30Z",
+    "classification": "Sinus Rhythm",
+    "averageHeartRate": 66,
+    "samplingFrequency": 512,
+    "numberOfVoltageMeasurements": 15360,
+    "source": "ECG"
+  },
+  "window_policy": "sliding",
+  "threshold": 0.5,
+  "target_samples": 5000,
+  "checkpoint_sampling_rate_hz": 500.0,
+  "duration_sec": 10.0,
+  "target_names": [
+    "normal_or_sinus_reference",
+    "atrial_fibrillation_or_flutter",
+    "bradycardia_or_tachycardia",
+    "other_abnormal"
+  ],
+  "predictions": [
+    {
+      "window_index": 0,
+      "window_start_sample": 0,
+      "window_end_sample": 5000,
+      "window_duration_sec": 10.0,
+      "window_target_samples": 5000,
+      "prob_any_abnormal": 0.543088,
+      "pred_any_abnormal": true,
+      "labels_above_threshold": ["normal_or_sinus_reference", "other_abnormal"],
+      "probabilities": {
+        "normal_or_sinus_reference": 0.543088,
+        "atrial_fibrillation_or_flutter": 0.443086,
+        "bradycardia_or_tachycardia": 0.478394,
+        "other_abnormal": 0.508431
+      }
+    }
+  ],
+  "caveat": "Predictions are experimental and not clinically validated."
+}
+```
+
+### Error responses
+
+- `422`: invalid request body, missing/empty ECG data, missing/empty `voltageMeasurements`, invalid `recordIndex`, invalid `samplingFrequency`, unsupported `windowPolicy`, or invalid `threshold`.
+- `413`: request body exceeds the ECG route size limit.
+- `503`: checkpoint/model runtime unavailable.
+
+Model unavailable response:
+
+```json
+{
+  "detail": "Apple Watch ECG inference service is unavailable."
+}
+```
+
+Oversized request response:
+
+```json
+{
+  "detail": "Request body is too large."
+}
+```
+
 ## `POST /api/screening/prenatal-cvd`
 
 Runs the shipped prenatal CVD follow-up prioritization model. This is a follow-up priority signal, not a cardiovascular disease diagnosis or direct disease probability.
@@ -124,7 +367,7 @@ Source files:
 
 ### Request body
 
-The endpoint accepts the current frontend-shaped payload:
+The endpoint accepts the current frontend-shaped payload. The frontend collects pre-pregnancy height and weight, calculates BMI, displays it to the user, and submits the calculated value as `prepregnancyBmi`:
 
 ```json
 {
@@ -270,7 +513,7 @@ Model unavailable response:
 
 ## `POST /api/screening/postnatal-followup`
 
-Runs the backend postnatal-followup maternal screening contract. This route is currently backend-only and is not wired to frontend UI flows yet.
+Runs the postnatal-followup maternal screening contract. The frontend postpartum risk profile flow collects model-aligned questions, calculates pre-pregnancy BMI from height and weight, and submits that BMI as `mother_bmi`.
 
 Source files:
 
@@ -281,6 +524,34 @@ Source files:
 - Artifact directory: `models/cdc-natality/postnatal_followup_v1/`
 
 ### Request body
+
+Representative frontend postpartum demo payload:
+
+```json
+{
+  "mother_age": "36",
+  "mother_bmi": "34.2",
+  "prepregnancy_hypertension": true,
+  "prepregnancy_diabetes": true,
+  "prior_live_births": "1",
+  "prior_dead_births": "0",
+  "previous_preterm_birth": true,
+  "previous_cesarean": true,
+  "previous_cesarean_count": "1",
+  "gestational_hypertension": true,
+  "eclampsia": false,
+  "gestational_diabetes": true,
+  "maternal_transfusion": false,
+  "ruptured_uterus": false,
+  "unplanned_hysterectomy": false,
+  "maternal_icu": true,
+  "obstetric_estimate_gestation_weeks": "35",
+  "birth_weight_grams": "2200",
+  "abnormal_condition_nicu": true,
+  "apgar_5_min": "7",
+  "apgar_10_min": "8"
+}
+```
 
 Numeric fields accept JSON numbers or numeric strings.
 
@@ -331,12 +602,18 @@ Model unavailable response:
 
 `POST /api/screening/prenatal-cvd` remains a prenatal-only, frontend-shaped minimal contract and does not support postnatal submissions.
 
-### Smoke test
+### Smoke tests
 
 ```bash
 curl -X POST http://127.0.0.1:45261/api/screening/prenatal-cvd \
   -H 'Content-Type: application/json' \
-  -d '{"pregnancyMode":"prenatal","age":35,"prepregnancyBmi":32.0,"chronicHypertension":true,"diabetes":false,"priorPretermOrStillbirth":true,"liveBirthsCount":1,"smokedPregnancy":false,"multipleGestation":false}'
+  -d '{"pregnancyMode":"prenatal","age":"35","prepregnancyBmi":"32.0","chronicHypertension":true,"diabetes":false,"priorPretermOrStillbirth":true,"liveBirthsCount":"1","smokedPregnancy":false,"multipleGestation":false}'
+```
+
+```bash
+curl -X POST http://127.0.0.1:45261/api/screening/postnatal-followup \
+  -H 'Content-Type: application/json' \
+  -d '{"mother_age":"36","mother_bmi":"34.2","prepregnancy_hypertension":true,"prepregnancy_diabetes":true,"prior_live_births":"1","prior_dead_births":"0","previous_preterm_birth":true,"previous_cesarean":true,"previous_cesarean_count":"1","gestational_hypertension":true,"eclampsia":false,"gestational_diabetes":true,"maternal_transfusion":false,"ruptured_uterus":false,"unplanned_hysterectomy":false,"maternal_icu":true,"obstetric_estimate_gestation_weeks":"35","birth_weight_grams":"2200","abnormal_condition_nicu":true,"apgar_5_min":"7","apgar_10_min":"8"}'
 ```
 
 ## Focused backend API tests

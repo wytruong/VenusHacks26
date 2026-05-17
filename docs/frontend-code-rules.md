@@ -48,14 +48,15 @@ npm run build
 
 ## 3. Keep Placeholder Clinical Flows Honest
 
-- Doctor-note OCR and ECG analysis are currently placeholder/mock frontend flows.
-- Prenatal risk submission is wired to the backend `POST /api/screening/prenatal-cvd` endpoint; postpartum risk remains a UI-only backlog state.
+- Doctor-note OCR is currently a placeholder/mock frontend flow.
+- Apple Watch ECG upload analysis is wired to `POST /api/ecg/apple-watch/infer` and must show experimental model probabilities without displaying raw waveform values.
+- Prenatal risk submission is wired to `POST /api/screening/prenatal-cvd`; postpartum risk submission is wired to `POST /api/screening/postnatal-followup`.
 - Placeholder flows must not imply real diagnosis, real OCR, real ECG interpretation, or live backend analysis where no endpoint exists.
 - When replacing a placeholder with real behavior, update UI copy, error states, loading states, docs, and tests/checks for that behavior.
 
 ## 4. Keep API Integration Typed and User-Safe
 
-- The backend currently exposes `POST /api/screening/prenatal-cvd`; the frontend uses a typed API client in `src/api/screening.ts` and submits from `src/App.tsx`.
+- The backend exposes `POST /api/screening/prenatal-cvd`, `POST /api/screening/postnatal-followup`, and `POST /api/ecg/apple-watch/infer`; the frontend uses typed API clients in `src/api/screening.ts` and `src/api/ecg.ts` and submits from `src/App.tsx`.
 - Keep the frontend API base URL aligned with backend runtime (`VITE_API_BASE_URL`, default `http://127.0.0.1:45261`).
 - Postpartum form submissions must not be sent to the prenatal endpoint.
 - Additional API wiring should stay near the pregnancy risk submit/result state unless the app is refactored first.

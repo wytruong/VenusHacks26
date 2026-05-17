@@ -22,6 +22,7 @@ Use these rules with `docs/testing-and-validation.md`, `docs/backend-code-rules.
 
 - Add or update tests for behavior changes, not for test count.
 - Backend route, schema, service mapping, and model-error changes require backend API tests.
+- Apple Watch ECG route or preprocessing changes require focused `backend/tests/test_apple_watch_ecg_api.py` coverage.
 - Frontend UI changes require lint/build, plus browser smoke when possible; if browser smoke cannot be performed, report that limitation explicitly.
 - Add automated tests when a stable frontend test harness exists or when the change introduces testable logic.
 - Normalization or data-contract changes require focused checks for the affected script/schema and docs alignment.
@@ -43,6 +44,12 @@ python -m pytest
 python -m pytest tests/test_agent_runtime.py
 ```
 
+- Focused Apple Watch ECG API tests:
+
+```bash
+python -m pytest tests/test_apple_watch_ecg_api.py
+```
+
 - Focused prenatal API tests:
 
 ```bash
@@ -55,7 +62,7 @@ python -m pytest tests/test_prenatal_cvd_api.py
 
 - Public API behavior must be tested through the FastAPI app/client path.
 - Helper-only tests are not enough for request validation, HTTP status codes, response fields, or safe error bodies.
-- Keep health and prenatal screening route coverage current when public API behavior changes.
+- Keep health, Apple Watch ECG, and screening route coverage current when public API behavior changes.
 
 ## 4. Preserve Prenatal API Contract Coverage
 
@@ -70,6 +77,19 @@ Tests for `POST /api/screening/prenatal-cvd` should cover applicable behavior wh
 - model-unavailable `503` behavior
 
 When the request or response contract changes, update `backend/API_REFERENCES.md` in the same change.
+
+Tests for `POST /api/ecg/apple-watch/infer` should cover applicable behavior when changed:
+
+- valid full Health Auto Export-shaped payload
+- valid single ECG record payload
+- invalid or missing `data.ecg`
+- invalid or missing `voltageMeasurements`
+- invalid `recordIndex`
+- short ECG padding to one window
+- non-finite voltage values
+- 30-second 512 Hz ECG producing 3 sliding windows
+- safe model-unavailable `503` behavior
+- request body size limit `413` behavior
 
 ## 5. Keep Model Failure Tests Safe and Generic
 

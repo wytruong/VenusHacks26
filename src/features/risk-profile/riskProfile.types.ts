@@ -1,21 +1,47 @@
-import type { PregnancyRiskTier, PrenatalCvdResponse } from '../../types/screening'
+import type {
+  PregnancyRiskTier,
+  PostnatalFollowupResponse,
+  PrenatalCvdResponse,
+} from '../../types/screening'
 
-export type RiskFactors = {
-  pregnancyMode: 'prenatal' | 'postpartum'
+type SharedRiskFactorFields = {
   age: string
-  prepregnancyBmi: string
+  prepregnancyHeightFeet: string
+  prepregnancyHeightInches: string
+  prepregnancyWeightLb: string
   chronicHypertension: boolean | null
   diabetes: boolean | null
+}
+
+export type PrenatalRiskFactors = SharedRiskFactorFields & {
+  pregnancyMode: 'prenatal'
   priorPretermOrStillbirth: boolean | null
   liveBirthsCount: string
   smokedPregnancy: boolean | null
   multipleGestation: boolean | null
-  gestationalHypertension: boolean | null
-  gestationalDiabetes: boolean | null
-  severeComplications: boolean | null
-  birthBefore37Weeks: boolean | null
-  birthUnder5_5lbs: boolean | null
 }
 
-export type PregnancyRiskResult = PrenatalCvdResponse
+export type PostnatalRiskFactors = SharedRiskFactorFields & {
+  pregnancyMode: 'postpartum'
+  priorLiveBirths: string
+  priorDeadBirths: string
+  previousPretermBirth: boolean | null
+  previousCesarean: boolean | null
+  previousCesareanCount: string
+  gestationalHypertension: boolean | null
+  eclampsia: boolean | null
+  gestationalDiabetes: boolean | null
+  maternalTransfusion: boolean | null
+  rupturedUterus: boolean | null
+  unplannedHysterectomy: boolean | null
+  maternalIcu: boolean | null
+  gestationalAgeWeeks: string
+  birthWeightGrams: string
+  abnormalConditionNicu: boolean | null
+  apgar5Min: string
+  apgar10Min: string
+}
+
+export type RiskFactors = PrenatalRiskFactors | PostnatalRiskFactors
+export type PregnancyRiskResult = PrenatalCvdResponse | PostnatalFollowupResponse
 export type { PregnancyRiskTier }

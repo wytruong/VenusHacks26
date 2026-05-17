@@ -2,6 +2,10 @@ import { useState, type ChangeEvent, type Dispatch, type RefObject, type SetStat
 import { motion } from 'framer-motion'
 import { dmSans, glassFieldCardStyle, glassNumberInputStyle, glassPillButton, glassTogglePill, profilePanelGlassInputStyle } from '../../shared/styles'
 import { easeSoftOut, ONBOARDING_EXIT_DURATION_S } from '../../shared/animation'
+import {
+  calculatePrepregnancyBmi,
+  formatCalculatedBmi,
+} from '../risk-profile/riskProfilePayload'
 import type { RiskFactors } from '../risk-profile/riskProfile.types'
 
 type OnboardingSubStep = 'question' | 'pregnancyStage' | 'profileDetails' | 'riskFactors'
@@ -58,6 +62,64 @@ function GlassYesNo({ value, onPick }: { value: boolean | null; onPick: (v: bool
       >
         No
       </button>
+    </div>
+  )
+}
+
+function NumberQuestion({
+  id,
+  label,
+  value,
+  onChange,
+  placeholder,
+  min = 0,
+  max,
+  step,
+  hint,
+}: {
+  id: string
+  label: string
+  value: string
+  onChange: (value: string) => void
+  placeholder?: string
+  min?: number
+  max?: number
+  step?: string
+  hint?: string
+}) {
+  return (
+    <div className="px-4 py-3" style={glassFieldCardStyle}>
+      <label className="block text-sm font-normal text-[#FDF0F0]" style={{ fontFamily: dmSans }} htmlFor={id}>{label}</label>
+      <input id={id} type="number" inputMode="decimal" min={min} max={max} step={step} placeholder={placeholder} className="tabular-nums placeholder:text-[#9B7B7B]" style={glassNumberInputStyle} value={value} onChange={(e) => onChange(e.target.value)} />
+      {hint ? <p className="mt-2 text-[11px] font-normal leading-snug text-[#9B7B7B]" style={{ fontFamily: dmSans }}>{hint}</p> : null}
+    </div>
+  )
+}
+
+function YesNoQuestion({
+  label,
+  value,
+  onPick,
+  hint,
+}: {
+  label: string
+  value: boolean | null
+  onPick: (value: boolean) => void
+  hint?: string
+}) {
+  return (
+    <div className="px-4 py-3" style={glassFieldCardStyle}>
+      <span className="block text-sm font-normal text-[#FDF0F0]" style={{ fontFamily: dmSans }}>{label}</span>
+      <GlassYesNo value={value} onPick={onPick} />
+      {hint ? <p className="mt-2 text-[11px] font-normal leading-snug text-[#9B7B7B]" style={{ fontFamily: dmSans }}>{hint}</p> : null}
+    </div>
+  )
+}
+
+function SectionLabel({ children }: { children: string }) {
+  return (
+    <div className="px-1 pt-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#F4C2C2]" style={{ fontFamily: dmSans }}>
+      {children}
     </div>
   )
 }
@@ -134,6 +196,8 @@ export default function OnboardingFlow({
 
     setSubStep('riskFactors')
   }
+
+  const calculatedBmi = formatCalculatedBmi(calculatePrepregnancyBmi(riskFactors))
 
   return (
     <motion.div
@@ -281,10 +345,12 @@ export default function OnboardingFlow({
 
           <div className="flex w-full flex-col gap-4">
             {!profileAge.trim() ? (
-              <div className="px-4 py-3" style={glassFieldCardStyle}>
-                <label className="block text-sm font-normal text-[#FDF0F0]" style={{ fontFamily: dmSans }} htmlFor="rf-age">How old are you?</label>
-                <input id="rf-age" type="number" inputMode="numeric" min={0} className="tabular-nums" style={glassNumberInputStyle} value={riskFactors.age} onChange={(e) => setRiskFactors((d) => ({ ...d, age: e.target.value }))} />
-              </div>
+              <NumberQuestion
+                id="rf-age"
+                label="How old are you?"
+                value={riskFactors.age}
+                onChange={(value) => setRiskFactors((d) => ({ ...d, age: value }))}
+              />
             ) : (
               <div className="px-4 py-3" style={glassFieldCardStyle}>
                 <p className="text-sm font-normal text-[#FDF0F0]" style={{ fontFamily: dmSans }}>
@@ -294,32 +360,62 @@ export default function OnboardingFlow({
             )}
 
             <div className="px-4 py-3" style={glassFieldCardStyle}>
-              <label className="block text-sm font-normal text-[#FDF0F0]" style={{ fontFamily: dmSans }} htmlFor="rf-bmi">What is your pre-pregnancy BMI?</label>
-              <input id="rf-bmi" type="number" inputMode="decimal" min={0} step="any" className="tabular-nums" style={glassNumberInputStyle} value={riskFactors.prepregnancyBmi} onChange={(e) => setRiskFactors((d) => ({ ...d, prepregnancyBmi: e.target.value }))} />
-              <p className="mt-2 text-[11px] font-normal leading-snug text-[#9B7B7B]" style={{ fontFamily: dmSans }}>Ask your doctor if unsure</p>
+              <span className="block text-sm font-normal text-[#FDF0F0]" style={{ fontFamily: dmSans }}>What was your pre-pregnancy height and weight?</span>
+              <div className="mt-3 grid grid-cols-3 gap-3">
+                <label className="text-[11px] font-normal text-[#D4B8B8]" style={{ fontFamily: dmSans }} htmlFor="rf-height-feet">
+                  Feet
+                  <input id="rf-height-feet" type="number" inputMode="numeric" min={0} className="mt-1 tabular-nums" style={glassNumberInputStyle} value={riskFactors.prepregnancyHeightFeet} onChange={(e) => setRiskFactors((d) => ({ ...d, prepregnancyHeightFeet: e.target.value }))} />
+                </label>
+                <label className="text-[11px] font-normal text-[#D4B8B8]" style={{ fontFamily: dmSans }} htmlFor="rf-height-inches">
+                  Inches
+                  <input id="rf-height-inches" type="number" inputMode="decimal" min={0} max={11} step="any" className="mt-1 tabular-nums" style={glassNumberInputStyle} value={riskFactors.prepregnancyHeightInches} onChange={(e) => setRiskFactors((d) => ({ ...d, prepregnancyHeightInches: e.target.value }))} />
+                </label>
+                <label className="text-[11px] font-normal text-[#D4B8B8]" style={{ fontFamily: dmSans }} htmlFor="rf-weight-lb">
+                  Pounds
+                  <input id="rf-weight-lb" type="number" inputMode="decimal" min={0} step="any" className="mt-1 tabular-nums" style={glassNumberInputStyle} value={riskFactors.prepregnancyWeightLb} onChange={(e) => setRiskFactors((d) => ({ ...d, prepregnancyWeightLb: e.target.value }))} />
+                </label>
+              </div>
+              <p className="mt-3 text-[11px] font-normal leading-snug text-[#9B7B7B]" style={{ fontFamily: dmSans }}>
+                {calculatedBmi ? `Calculated pre-pregnancy BMI: ${calculatedBmi}` : 'We will calculate BMI from height and weight for the model.'}
+              </p>
             </div>
 
-            <div className="px-4 py-3" style={glassFieldCardStyle}><span className="block text-sm font-normal text-[#FDF0F0]" style={{ fontFamily: dmSans }}>Do you have chronic high blood pressure?</span><GlassYesNo value={riskFactors.chronicHypertension} onPick={(v) => setRiskFactors((d) => ({ ...d, chronicHypertension: v }))} /></div>
-            <div className="px-4 py-3" style={glassFieldCardStyle}><span className="block text-sm font-normal text-[#FDF0F0]" style={{ fontFamily: dmSans }}>Do you have diabetes?</span><GlassYesNo value={riskFactors.diabetes} onPick={(v) => setRiskFactors((d) => ({ ...d, diabetes: v }))} /></div>
-            <div className="px-4 py-3" style={glassFieldCardStyle}><span className="block text-sm font-normal text-[#FDF0F0]" style={{ fontFamily: dmSans }}>Have you had a preterm birth or stillbirth before?</span><GlassYesNo value={riskFactors.priorPretermOrStillbirth} onPick={(v) => setRiskFactors((d) => ({ ...d, priorPretermOrStillbirth: v }))} /></div>
+            <YesNoQuestion label="Before pregnancy, did you have chronic high blood pressure?" value={riskFactors.chronicHypertension} onPick={(value) => setRiskFactors((d) => ({ ...d, chronicHypertension: value }))} />
+            <YesNoQuestion label="Before pregnancy, did you have diabetes?" value={riskFactors.diabetes} onPick={(value) => setRiskFactors((d) => ({ ...d, diabetes: value }))} />
 
-            <div className="px-4 py-3" style={glassFieldCardStyle}>
-              <label className="block text-sm font-normal text-[#FDF0F0]" style={{ fontFamily: dmSans }} htmlFor="rf-live-births">How many live births have you had?</label>
-              <input id="rf-live-births" type="number" inputMode="numeric" min={0} className="tabular-nums" style={glassNumberInputStyle} value={riskFactors.liveBirthsCount} onChange={(e) => setRiskFactors((d) => ({ ...d, liveBirthsCount: e.target.value }))} />
-            </div>
-
-            <div className="px-4 py-3" style={glassFieldCardStyle}><span className="block text-sm font-normal text-[#FDF0F0]" style={{ fontFamily: dmSans }}>Did you smoke before or during pregnancy?</span><GlassYesNo value={riskFactors.smokedPregnancy} onPick={(v) => setRiskFactors((d) => ({ ...d, smokedPregnancy: v }))} /></div>
-            <div className="px-4 py-3" style={glassFieldCardStyle}><span className="block text-sm font-normal text-[#FDF0F0]" style={{ fontFamily: dmSans }}>Are you carrying more than one baby?</span><GlassYesNo value={riskFactors.multipleGestation} onPick={(v) => setRiskFactors((d) => ({ ...d, multipleGestation: v }))} /></div>
-
-            {riskFactors.pregnancyMode === 'postpartum' ? (
+            {riskFactors.pregnancyMode === 'prenatal' ? (
               <>
-                <div className="px-4 py-3" style={glassFieldCardStyle}><span className="block text-sm font-normal text-[#FDF0F0]" style={{ fontFamily: dmSans }}>Did you develop high blood pressure during pregnancy?</span><GlassYesNo value={riskFactors.gestationalHypertension} onPick={(v) => setRiskFactors((d) => ({ ...d, gestationalHypertension: v }))} /></div>
-                <div className="px-4 py-3" style={glassFieldCardStyle}><span className="block text-sm font-normal text-[#FDF0F0]" style={{ fontFamily: dmSans }}>Did you develop gestational diabetes?</span><GlassYesNo value={riskFactors.gestationalDiabetes} onPick={(v) => setRiskFactors((d) => ({ ...d, gestationalDiabetes: v }))} /></div>
-                <div className="px-4 py-3" style={glassFieldCardStyle}><span className="block text-sm font-normal text-[#FDF0F0]" style={{ fontFamily: dmSans }}>Did you have any severe pregnancy complications?</span><GlassYesNo value={riskFactors.severeComplications} onPick={(v) => setRiskFactors((d) => ({ ...d, severeComplications: v }))} /><p className="mt-2 text-[11px] font-normal leading-snug text-[#9B7B7B]" style={{ fontFamily: dmSans }}>ICU stay, blood transfusion, or emergency surgery</p></div>
-                <div className="px-4 py-3" style={glassFieldCardStyle}><span className="block text-sm font-normal text-[#FDF0F0]" style={{ fontFamily: dmSans }}>Was your baby born before 37 weeks?</span><GlassYesNo value={riskFactors.birthBefore37Weeks} onPick={(v) => setRiskFactors((d) => ({ ...d, birthBefore37Weeks: v }))} /></div>
-                <div className="px-4 py-3" style={glassFieldCardStyle}><span className="block text-sm font-normal text-[#FDF0F0]" style={{ fontFamily: dmSans }}>Was your baby under 5.5 lbs at birth?</span><GlassYesNo value={riskFactors.birthUnder5_5lbs} onPick={(v) => setRiskFactors((d) => ({ ...d, birthUnder5_5lbs: v }))} /></div>
+                <YesNoQuestion label="Have you previously had a preterm birth or stillbirth?" value={riskFactors.priorPretermOrStillbirth} onPick={(value) => setRiskFactors((d) => (d.pregnancyMode === 'prenatal' ? { ...d, priorPretermOrStillbirth: value } : d))} />
+                <NumberQuestion id="rf-live-births" label="How many prior live births have you had?" value={riskFactors.liveBirthsCount} onChange={(value) => setRiskFactors((d) => (d.pregnancyMode === 'prenatal' ? { ...d, liveBirthsCount: value } : d))} />
+                <YesNoQuestion label="Did you smoke before or during this pregnancy?" value={riskFactors.smokedPregnancy} onPick={(value) => setRiskFactors((d) => (d.pregnancyMode === 'prenatal' ? { ...d, smokedPregnancy: value } : d))} />
+                <YesNoQuestion label="Are you carrying twins or another multiple gestation?" value={riskFactors.multipleGestation} onPick={(value) => setRiskFactors((d) => (d.pregnancyMode === 'prenatal' ? { ...d, multipleGestation: value } : d))} />
               </>
-            ) : null}
+            ) : (
+              <>
+                <SectionLabel>Before pregnancy</SectionLabel>
+                <NumberQuestion id="rf-prior-live-births" label="How many prior live births have you had?" value={riskFactors.priorLiveBirths} onChange={(value) => setRiskFactors((d) => (d.pregnancyMode === 'postpartum' ? { ...d, priorLiveBirths: value } : d))} />
+                <NumberQuestion id="rf-prior-dead-births" label="How many prior stillbirths or fetal losses have you had?" value={riskFactors.priorDeadBirths} onChange={(value) => setRiskFactors((d) => (d.pregnancyMode === 'postpartum' ? { ...d, priorDeadBirths: value } : d))} />
+                <YesNoQuestion label="Have you previously had a preterm birth?" value={riskFactors.previousPretermBirth} onPick={(value) => setRiskFactors((d) => (d.pregnancyMode === 'postpartum' ? { ...d, previousPretermBirth: value } : d))} />
+                <YesNoQuestion label="Have you previously had a cesarean delivery?" value={riskFactors.previousCesarean} onPick={(value) => setRiskFactors((d) => (d.pregnancyMode === 'postpartum' ? { ...d, previousCesarean: value } : d))} />
+                <NumberQuestion id="rf-previous-cesarean-count" label="How many previous cesarean deliveries have you had?" value={riskFactors.previousCesareanCount} onChange={(value) => setRiskFactors((d) => (d.pregnancyMode === 'postpartum' ? { ...d, previousCesareanCount: value } : d))} />
+
+                <SectionLabel>During pregnancy and delivery</SectionLabel>
+                <YesNoQuestion label="Did you develop high blood pressure during pregnancy?" value={riskFactors.gestationalHypertension} onPick={(value) => setRiskFactors((d) => (d.pregnancyMode === 'postpartum' ? { ...d, gestationalHypertension: value } : d))} />
+                <YesNoQuestion label="Did you have eclampsia?" value={riskFactors.eclampsia} onPick={(value) => setRiskFactors((d) => (d.pregnancyMode === 'postpartum' ? { ...d, eclampsia: value } : d))} />
+                <YesNoQuestion label="Did you develop gestational diabetes?" value={riskFactors.gestationalDiabetes} onPick={(value) => setRiskFactors((d) => (d.pregnancyMode === 'postpartum' ? { ...d, gestationalDiabetes: value } : d))} />
+                <YesNoQuestion label="Did you have a maternal blood transfusion?" value={riskFactors.maternalTransfusion} onPick={(value) => setRiskFactors((d) => (d.pregnancyMode === 'postpartum' ? { ...d, maternalTransfusion: value } : d))} />
+                <YesNoQuestion label="Did you have a ruptured uterus?" value={riskFactors.rupturedUterus} onPick={(value) => setRiskFactors((d) => (d.pregnancyMode === 'postpartum' ? { ...d, rupturedUterus: value } : d))} />
+                <YesNoQuestion label="Did you have an unplanned hysterectomy?" value={riskFactors.unplannedHysterectomy} onPick={(value) => setRiskFactors((d) => (d.pregnancyMode === 'postpartum' ? { ...d, unplannedHysterectomy: value } : d))} />
+                <YesNoQuestion label="Did you need ICU care?" value={riskFactors.maternalIcu} onPick={(value) => setRiskFactors((d) => (d.pregnancyMode === 'postpartum' ? { ...d, maternalIcu: value } : d))} />
+
+                <SectionLabel>Baby and newborn context</SectionLabel>
+                <NumberQuestion id="rf-gestational-age-weeks" label="What was the gestational age at delivery in weeks?" value={riskFactors.gestationalAgeWeeks} step="any" onChange={(value) => setRiskFactors((d) => (d.pregnancyMode === 'postpartum' ? { ...d, gestationalAgeWeeks: value } : d))} />
+                <NumberQuestion id="rf-birth-weight-grams" label="What was the birth weight in grams?" value={riskFactors.birthWeightGrams} onChange={(value) => setRiskFactors((d) => (d.pregnancyMode === 'postpartum' ? { ...d, birthWeightGrams: value } : d))} />
+                <YesNoQuestion label="Was there a NICU abnormal condition?" value={riskFactors.abnormalConditionNicu} onPick={(value) => setRiskFactors((d) => (d.pregnancyMode === 'postpartum' ? { ...d, abnormalConditionNicu: value } : d))} />
+                <NumberQuestion id="rf-apgar-5" label="What was the 5-minute Apgar score?" value={riskFactors.apgar5Min} max={10} onChange={(value) => setRiskFactors((d) => (d.pregnancyMode === 'postpartum' ? { ...d, apgar5Min: value } : d))} />
+                <NumberQuestion id="rf-apgar-10" label="What was the 10-minute Apgar score?" value={riskFactors.apgar10Min} max={10} onChange={(value) => setRiskFactors((d) => (d.pregnancyMode === 'postpartum' ? { ...d, apgar10Min: value } : d))} />
+              </>
+            )}
           </div>
 
           <button type="button" className={`${glassPillButton} mt-8`} onClick={onSubmitRisk}>Check my heart risk →</button>

@@ -12,7 +12,6 @@ import HeartModel, { type MeshSelectPayload } from './components/HeartModel'
 import {
   CTA_DELAY_AFTER_HEART_S,
   DOCTOR_NOTE_READING_MS,
-  ECG_READING_MS,
   HEART_FADE_DURATION_S,
   ONBOARDING_EXIT_DURATION_S,
   PARTICLE_DURATION_S,
@@ -22,13 +21,30 @@ import {
 import { dmSans, editProfilePillButton } from './shared/styles'
 import { generateParticles } from './features/landing/particles'
 import { MOCK_DOCTOR_NOTE_OCR } from './features/doctor-note/doctorNote.mock'
+import { DEMO_DOCTOR_NOTE_RECORDS, toDoctorNoteOcrResult, type DemoDoctorNoteRecord } from './features/doctor-note/demoDoctorNotes'
 import type { DoctorNoteOcrResult } from './features/doctor-note/doctorNote.types'
 import DoctorNoteInsightPanel from './features/doctor-note/DoctorNoteInsightPanel'
-import { createEmptyRiskFactors } from './features/risk-profile/riskProfilePayload'
+import {
+  createEmptyRiskFactors,
+  toPostnatalFollowupRequest,
+  toPrenatalCvdRequest,
+  validatePostnatalRiskFactors,
+  validatePrenatalRiskFactors,
+} from './features/risk-profile/riskProfilePayload'
 import type { PregnancyRiskResult, RiskFactors } from './features/risk-profile/riskProfile.types'
 import { AgentChatApiError, submitAgentChat } from './api/agentChat'
-import { submitPrenatalCvdScreening } from './api/screening'
-import { ScreeningApiError, type PrenatalCvdRequest } from './types/screening'
+import { DoctorNoteScreeningApiError, submitDoctorNoteScreening } from './api/doctorNoteScreening'
+import { submitAppleWatchEcgInference } from './api/ecg'
+import { submitPostnatalFollowupScreening, submitPrenatalCvdScreening } from './api/screening'
+import { parseAppleWatchEcgUpload } from './features/ecg/appleWatchEcgParsing'
+import {
+  AppleWatchEcgApiError,
+  type AppleWatchEcgInferResponse,
+  type AppleWatchEcgRecordSummary,
+  type AppleWatchEcgWindowPolicy,
+  type ParsedAppleWatchEcgUpload,
+} from './types/ecg'
+import { ScreeningApiError } from './types/screening'
 import RiskResultPanel from './features/risk-profile/RiskResultPanel'
 import HeartInsightPanel from './features/heart/HeartInsightPanel'
 import { ProfilePanel } from './features/profile/ProfilePanel'
@@ -44,21 +60,6 @@ import { DoctorNoteRoute } from './routes/DoctorNoteRoute'
 const BG = '#1a0a0a'
 
 
-function EcgHeartGlyph({ className }: { className?: string }) {
-  return (
-    <svg
-      className={className}
-      width={20}
-      height={18}
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      aria-hidden
-    >
-      <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-    </svg>
-  )
-}
-
 function ReadingNoteEllipsis() {
   const [phase, setPhase] = useState(0)
   useEffect(() => {
@@ -72,83 +73,8 @@ function ReadingNoteEllipsis() {
   )
 }
 
-function toPrenatalRequest(riskFactors: RiskFactors, profileAge: string): PrenatalCvdRequest | null {
-  const resolvedAge = profileAge.trim() || riskFactors.age
-  const {
-    prepregnancyBmi,
-    liveBirthsCount,
-    chronicHypertension,
-    diabetes,
-    priorPretermOrStillbirth,
-    smokedPregnancy,
-    multipleGestation,
-  } = riskFactors
-
-  if (
-    riskFactors.pregnancyMode !== 'prenatal' ||
-    !resolvedAge.trim() ||
-    !prepregnancyBmi.trim() ||
-    !liveBirthsCount.trim() ||
-    chronicHypertension === null ||
-    diabetes === null ||
-    priorPretermOrStillbirth === null ||
-    smokedPregnancy === null ||
-    multipleGestation === null
-  ) {
-    return null
-  }
-
-  return {
-    pregnancyMode: 'prenatal',
-    age: resolvedAge,
-    prepregnancyBmi,
-    chronicHypertension,
-    diabetes,
-    priorPretermOrStillbirth,
-    liveBirthsCount,
-    smokedPregnancy,
-    multipleGestation,
-  }
-}
-
 function createDoctorNoteChatSessionId() {
   return `doctor-note-${Date.now()}-${Math.random().toString(36).slice(2)}`
-}
-
-function getPrenatalValidationMessage(riskFactors: RiskFactors, profileAge: string): string | null {
-  if (riskFactors.pregnancyMode !== 'prenatal') return null
-
-  const resolvedAge = profileAge.trim() || riskFactors.age
-
-  if (!resolvedAge.trim() || Number.isNaN(Number(resolvedAge))) {
-    return 'Please enter a valid age before continuing.'
-  }
-  if (
-    !riskFactors.prepregnancyBmi.trim() ||
-    Number.isNaN(Number(riskFactors.prepregnancyBmi))
-  ) {
-    return 'Please enter a valid pre-pregnancy BMI before continuing.'
-  }
-  if (
-    !riskFactors.liveBirthsCount.trim() ||
-    !Number.isInteger(Number(riskFactors.liveBirthsCount))
-  ) {
-    return 'Please enter a whole number for live births count.'
-  }
-
-  const hasUnansweredYesNo = [
-    riskFactors.chronicHypertension,
-    riskFactors.diabetes,
-    riskFactors.priorPretermOrStillbirth,
-    riskFactors.smokedPregnancy,
-    riskFactors.multipleGestation,
-  ].some((value) => value === null)
-
-  if (hasUnansweredYesNo) {
-    return 'Please answer all yes/no questions before submitting.'
-  }
-
-  return null
 }
 
 export default function App() {
@@ -183,13 +109,20 @@ export default function App() {
     createEmptyRiskFactors('prenatal'),
   )
   const [ecgFile, setEcgFile] = useState<File | null>(null)
+  const [parsedEcgUpload, setParsedEcgUpload] = useState<ParsedAppleWatchEcgUpload | null>(null)
+  const [ecgRecordSummaries, setEcgRecordSummaries] = useState<AppleWatchEcgRecordSummary[]>([])
+  const [selectedEcgRecordIndex, setSelectedEcgRecordIndex] = useState(0)
+  const [ecgParseError, setEcgParseError] = useState<string | null>(null)
+  const [ecgAnalysisError, setEcgAnalysisError] = useState<string | null>(null)
+  const [ecgAnalysisResult, setEcgAnalysisResult] = useState<AppleWatchEcgInferResponse | null>(null)
+  const [ecgWindowPolicy, setEcgWindowPolicy] = useState<AppleWatchEcgWindowPolicy>('first')
+  const [ecgThreshold, setEcgThreshold] = useState('0.5')
   const [doctorNotePreviewUrl, setDoctorNotePreviewUrl] = useState<
     string | null
   >(null)
   const doctorNoteFileInputRef = useRef<HTMLInputElement>(null)
   const ecgFileInputRef = useRef<HTMLInputElement>(null)
   const readDoctorNoteTimerRef = useRef(0)
-  const ecgReadTimerRef = useRef(0)
   const riskAnalysisTimerRef = useRef(0)
 
   const [pregnancyRiskAnalyzing, setPregnancyRiskAnalyzing] =
@@ -206,6 +139,8 @@ export default function App() {
   const [doctorNoteFollowUpResponse, setDoctorNoteFollowUpResponse] = useState<string | null>(null)
   const [doctorNoteFollowUpError, setDoctorNoteFollowUpError] = useState<string | null>(null)
   const [doctorNoteFollowUpLoading, setDoctorNoteFollowUpLoading] = useState(false)
+  const [doctorNoteScreeningLoading, setDoctorNoteScreeningLoading] = useState(false)
+  const [doctorNoteScreeningError, setDoctorNoteScreeningError] = useState<string | null>(null)
   const [doctorNoteChatSessionId, setDoctorNoteChatSessionId] = useState(() =>
     createDoctorNoteChatSessionId(),
   )
@@ -270,9 +205,6 @@ export default function App() {
       if (readDoctorNoteTimerRef.current) {
         window.clearTimeout(readDoctorNoteTimerRef.current)
       }
-      if (ecgReadTimerRef.current) {
-        window.clearTimeout(ecgReadTimerRef.current)
-      }
       if (riskAnalysisTimerRef.current) {
         window.clearTimeout(riskAnalysisTimerRef.current)
       }
@@ -297,12 +229,43 @@ export default function App() {
     })
   }
 
-  const onEcgFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    setEcgFile(e.target.files?.[0] ?? null)
+  const onEcgFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null
+    setEcgFile(file)
+    setParsedEcgUpload(null)
+    setEcgRecordSummaries([])
+    setSelectedEcgRecordIndex(0)
+    setEcgParseError(null)
+    setEcgAnalysisError(null)
+    setEcgAnalysisResult(null)
+
+    if (!file) return
+
+    try {
+      const data: unknown = JSON.parse(await file.text())
+      const parsed = parseAppleWatchEcgUpload(data)
+      setParsedEcgUpload(parsed)
+      setEcgRecordSummaries(parsed.recordSummaries)
+    } catch (error) {
+      setEcgParseError(
+        error instanceof Error
+          ? error.message
+          : 'Upload a valid Apple Watch ECG JSON export.',
+      )
+    }
   }
 
   const clearEcgSelection = () => {
     setEcgFile(null)
+    setParsedEcgUpload(null)
+    setEcgRecordSummaries([])
+    setSelectedEcgRecordIndex(0)
+    setEcgParseError(null)
+    setEcgAnalysisError(null)
+    setEcgAnalysisResult(null)
+    setEcgReadingLoading(false)
+    setEcgWindowPolicy('first')
+    setEcgThreshold('0.5')
     const input = ecgFileInputRef.current
     if (input) input.value = ''
   }
@@ -312,19 +275,44 @@ export default function App() {
     navigate(ROUTE_PATHS.heart)
   }
 
-  const handleAnalyzeEcg = () => {
-    if (!ecgFile) return
-    navigate(ROUTE_PATHS.heart)
-    setEcgReadingLoading(true)
-    setHeartInteractive(false)
-    if (ecgReadTimerRef.current) {
-      window.clearTimeout(ecgReadTimerRef.current)
+  const handleAnalyzeEcg = async () => {
+    if (!parsedEcgUpload || ecgReadingLoading) return
+
+    const threshold = Number(ecgThreshold)
+    if (!Number.isFinite(threshold) || threshold < 0 || threshold > 1) {
+      setEcgAnalysisError('Choose a threshold between 0 and 1.')
+      return
     }
-    ecgReadTimerRef.current = window.setTimeout(() => {
-      ecgReadTimerRef.current = 0
+
+    setEcgReadingLoading(true)
+    setEcgAnalysisError(null)
+    setEcgAnalysisResult(null)
+
+    try {
+      const response = await submitAppleWatchEcgInference(
+        parsedEcgUpload.kind === 'healthExport'
+          ? {
+              healthExport: parsedEcgUpload.healthExport,
+              recordIndex: selectedEcgRecordIndex,
+              windowPolicy: ecgWindowPolicy,
+              threshold,
+            }
+          : {
+              ecgRecord: parsedEcgUpload.ecgRecord,
+              windowPolicy: ecgWindowPolicy,
+              threshold,
+            },
+      )
+      setEcgAnalysisResult(response)
+    } catch (error) {
+      if (error instanceof AppleWatchEcgApiError) {
+        setEcgAnalysisError(error.userMessage)
+      } else {
+        setEcgAnalysisError('We could not analyze this ECG file right now. Please try again shortly.')
+      }
+    } finally {
       setEcgReadingLoading(false)
-      clearEcgSelection()
-    }, ECG_READING_MS)
+    }
   }
 
   const skipDoctorNoteToHeart = () => {
@@ -332,14 +320,20 @@ export default function App() {
     navigate(ROUTE_PATHS.heart)
   }
 
-  const handleReadDoctorNote = () => {
-    setMeshInfo(null)
-    navigate(ROUTE_PATHS.heart)
+  const resetDoctorNoteChatState = () => {
     setDoctorNoteFollowUpDraft('')
     setDoctorNoteFollowUpResponse(null)
     setDoctorNoteFollowUpError(null)
     setDoctorNoteFollowUpLoading(false)
+    setDoctorNoteScreeningLoading(false)
+    setDoctorNoteScreeningError(null)
     setDoctorNoteChatSessionId(createDoctorNoteChatSessionId())
+  }
+
+  const handleReadDoctorNote = () => {
+    setMeshInfo(null)
+    navigate(ROUTE_PATHS.heart)
+    resetDoctorNoteChatState()
     setDoctorNoteOcrLoading(true)
     setDoctorNoteOcrResult(null)
     setHeartInteractive(false)
@@ -351,6 +345,39 @@ export default function App() {
       setDoctorNoteOcrLoading(false)
       setDoctorNoteOcrResult(MOCK_DOCTOR_NOTE_OCR)
     }, DOCTOR_NOTE_READING_MS)
+  }
+
+  const selectDemoDoctorNote = async (record: DemoDoctorNoteRecord) => {
+    const sessionId = createDoctorNoteChatSessionId()
+    setMeshInfo(null)
+    navigate(ROUTE_PATHS.heart)
+    revokeDoctorNotePreview()
+    resetDoctorNoteChatState()
+    setDoctorNoteChatSessionId(sessionId)
+    setDoctorNoteOcrLoading(false)
+    setDoctorNoteOcrResult(toDoctorNoteOcrResult(record))
+    setDoctorNoteScreeningLoading(true)
+    setDoctorNoteScreeningError(null)
+    setHeartInteractive(false)
+    if (readDoctorNoteTimerRef.current) {
+      window.clearTimeout(readDoctorNoteTimerRef.current)
+      readDoctorNoteTimerRef.current = 0
+    }
+
+    try {
+      const screening = await submitDoctorNoteScreening({ sessionId, record })
+      setDoctorNoteOcrResult((current) => (current ? { ...current, screening } : current))
+    } catch (error) {
+      if (error instanceof DoctorNoteScreeningApiError) {
+        setDoctorNoteScreeningError(error.userMessage)
+      } else {
+        setDoctorNoteScreeningError(
+          'We could not process this note for screening right now. You can still ask about the note summary.',
+        )
+      }
+    } finally {
+      setDoctorNoteScreeningLoading(false)
+    }
   }
 
   const submitDoctorNoteFollowUp = async (e?: FormEvent<HTMLFormElement>) => {
@@ -367,6 +394,7 @@ export default function App() {
         sessionId: doctorNoteChatSessionId,
         surface: 'general_health_companion',
         doctorNote: doctorNoteOcrResult,
+        doctorNoteScreening: doctorNoteOcrResult.screening ?? null,
         messages: [{ role: 'user', content: question }],
       })
       setDoctorNoteFollowUpResponse(response.assistantText)
@@ -387,24 +415,13 @@ export default function App() {
   const handlePregnancyRiskSubmit = async () => {
     setPregnancyRiskSubmitMessage(null)
 
-    if (riskFactors.pregnancyMode === 'postpartum') {
-      setPregnancyRiskSubmitMessage(
-        'Postpartum risk screening is coming soon. For now, please review your recent symptoms with your OB or primary care team.',
-      )
-      return
-    }
+    const validationMessage =
+      riskFactors.pregnancyMode === 'prenatal'
+        ? validatePrenatalRiskFactors(riskFactors, profileAge)
+        : validatePostnatalRiskFactors(riskFactors, profileAge)
 
-    const validationMessage = getPrenatalValidationMessage(riskFactors, profileAge)
     if (validationMessage) {
       setPregnancyRiskSubmitMessage(validationMessage)
-      return
-    }
-
-    const payload = toPrenatalRequest(riskFactors, profileAge)
-    if (!payload) {
-      setPregnancyRiskSubmitMessage(
-        'Some answers are missing or invalid. Please review your profile and try again.',
-      )
       return
     }
 
@@ -424,10 +441,14 @@ export default function App() {
         }, PREGNANCY_RISK_ANALYSIS_MS)
       })
 
-      const [response] = await Promise.all([
-        submitPrenatalCvdScreening(payload),
-        minimumSpinnerMs,
-      ])
+      const screeningRequest =
+        riskFactors.pregnancyMode === 'prenatal'
+          ? submitPrenatalCvdScreening(toPrenatalCvdRequest(riskFactors, profileAge))
+          : submitPostnatalFollowupScreening(
+              toPostnatalFollowupRequest(riskFactors, profileAge),
+            )
+
+      const [response] = await Promise.all([screeningRequest, minimumSpinnerMs])
 
       setOnboardingSubStep('question')
       navigate(ROUTE_PATHS.heart)
@@ -524,15 +545,13 @@ export default function App() {
     setDoctorNoteFollowUpResponse(null)
     setDoctorNoteFollowUpError(null)
     setDoctorNoteFollowUpLoading(false)
+    setDoctorNoteScreeningLoading(false)
+    setDoctorNoteScreeningError(null)
     setDoctorNoteChatSessionId(createDoctorNoteChatSessionId())
     setEcgReadingLoading(false)
     if (readDoctorNoteTimerRef.current) {
       window.clearTimeout(readDoctorNoteTimerRef.current)
       readDoctorNoteTimerRef.current = 0
-    }
-    if (ecgReadTimerRef.current) {
-      window.clearTimeout(ecgReadTimerRef.current)
-      ecgReadTimerRef.current = 0
     }
     if (riskAnalysisTimerRef.current) {
       window.clearTimeout(riskAnalysisTimerRef.current)
@@ -679,39 +698,6 @@ export default function App() {
               <ReadingNoteEllipsis />
             </p>
           </motion.div>
-        ) : ecgReadingLoading ? (
-          <motion.div
-            key="reading-ecg"
-            className="pointer-events-none fixed inset-x-0 bottom-[20%] z-[44] flex justify-center px-6 md:bottom-[24%]"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.4, ease: easeSoftOut }}
-          >
-            <div
-              className="flex flex-col items-center gap-3"
-              style={{ fontFamily: dmSans }}
-            >
-              <motion.div
-                animate={{ scale: [1, 1.14, 1] }}
-                transition={{
-                  duration: 1.15,
-                  repeat: Infinity,
-                  ease: 'easeInOut',
-                }}
-                className="text-[#E88080]"
-                aria-hidden
-              >
-                <EcgHeartGlyph className="text-current" />
-              </motion.div>
-              <p
-                className="text-center font-normal tracking-[0.02em] text-[#9B7B7B]"
-                style={{ fontSize: 12 }}
-              >
-                Reading your ECG...
-              </p>
-            </div>
-          </motion.div>
         ) : pregnancyRiskAnalyzing ? (
           <motion.div
             key="analyzing-risk"
@@ -740,6 +726,8 @@ export default function App() {
             response={doctorNoteFollowUpResponse}
             error={doctorNoteFollowUpError}
             isLoading={doctorNoteFollowUpLoading}
+            screeningLoading={doctorNoteScreeningLoading}
+            screeningError={doctorNoteScreeningError}
             setDraft={setDoctorNoteFollowUpDraft}
             onSubmitFollowUp={submitDoctorNoteFollowUp}
           />
@@ -834,8 +822,20 @@ export default function App() {
           <EcgRoute
             ecgFileInputRef={ecgFileInputRef}
             ecgFile={ecgFile}
+            recordSummaries={ecgRecordSummaries}
+            selectedRecordIndex={selectedEcgRecordIndex}
+            parseError={ecgParseError}
+            analysisError={ecgAnalysisError}
+            analysisResult={ecgAnalysisResult}
+            isAnalyzing={ecgReadingLoading}
+            windowPolicy={ecgWindowPolicy}
+            threshold={ecgThreshold}
             onEcgFileChange={onEcgFileChange}
+            onSelectedRecordIndexChange={setSelectedEcgRecordIndex}
+            onWindowPolicyChange={setEcgWindowPolicy}
+            onThresholdChange={setEcgThreshold}
             onAnalyzeEcg={handleAnalyzeEcg}
+            onReset={clearEcgSelection}
             onSkip={skipEcgToHeart}
           />
         }
@@ -843,8 +843,10 @@ export default function App() {
           <DoctorNoteRoute
             doctorNoteFileInputRef={doctorNoteFileInputRef}
             doctorNotePreviewUrl={doctorNotePreviewUrl}
+            demoDoctorNoteRecords={DEMO_DOCTOR_NOTE_RECORDS}
             onDoctorNoteFileChange={onDoctorNoteFileChange}
             onReadDoctorNote={handleReadDoctorNote}
+            onSelectDemoDoctorNote={selectDemoDoctorNote}
             onSkip={skipDoctorNoteToHeart}
           />
         }

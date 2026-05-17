@@ -17,9 +17,9 @@ Hear Your Heart is a maternal cardiac health companion that helps pregnant and p
 
 Three entry points, one destination:
 
-- **Apple Watch ECG** — upload an ECG export placeholder flow for cardiac rhythm review.
+- **Apple Watch ECG** — upload ECG export data for experimental Lead I prototype probabilities.
 - **Doctor's Note** — photograph a handwritten note and translate it into patient-friendly language.
-- **Risk Profile** — enter maternal health factors and receive a prenatal follow-up priority signal from the backend model API.
+- **Risk Profile** — enter prenatal or postpartum maternal health factors and receive a follow-up priority signal from the backend model APIs.
 
 All three paths lead to an immersive 3D heart visualization with plain-language explanations, doctor questions, and scripts for what to say at the next appointment.
 
@@ -28,10 +28,11 @@ All three paths lead to an immersive 3D heart visualization with plain-language 
 - Immersive 3D anatomical heart visualization with interactive region exploration.
 - Particle landing animation and adaptive interface.
 - Pregnancy onboarding with prenatal and postpartum modes.
-- Maternal cardiac risk factor form with 8 prenatal inputs and 5 postpartum clinical flags.
-- FastAPI prenatal screening endpoint backed by shipped model artifacts.
-- Typed frontend screening API client (`src/api/screening.ts`) with user-safe error handling.
-- Apple Watch ECG upload placeholder flow.
+- Maternal cardiac risk factor form with calculated BMI and model-aligned prenatal/postpartum inputs.
+- FastAPI prenatal and postnatal screening endpoints backed by shipped model artifacts.
+- FastAPI Apple Watch Lead I ECG prototype endpoint backed by a copied research checkpoint.
+- Typed frontend screening and ECG API clients (`src/api/screening.ts`, `src/api/ecg.ts`) with user-safe error handling.
+- Apple Watch ECG upload flow with experimental, non-clinically-validated prototype probabilities.
 - Doctor note upload placeholder flow with mocked OCR-style result.
 - Personalized patient profile with photo, medications, allergies, and doctor visit notes.
 - Risk tier output — low, medium, high — with contributing factors and recommended next steps.
@@ -51,8 +52,9 @@ Backend:
 
 - FastAPI + Pydantic
 - Python 3.12
-- pandas, NumPy, scikit-learn, LightGBM
+- pandas, NumPy, scikit-learn, LightGBM, PyTorch
 - Shipped CDC natality prenatal screening model artifacts
+- Shipped Apple Watch Lead I ECG prototype checkpoint
 
 ## Project Layout
 
@@ -63,6 +65,8 @@ Backend:
 ├── backend/
 │   ├── backend/                 FastAPI app, routes, schemas, services
 │   ├── models/cdc-natality/     Shipped prenatal model package
+│   ├── models/lead1_dataset_invariance/
+│   │                             Apple Watch ECG prototype checkpoint
 │   ├── scripts/                 Model, data, health, and normalization scripts
 │   ├── tests/                   Backend API tests
 │   ├── API_REFERENCES.md        Detailed backend API contract
@@ -118,13 +122,21 @@ Expected response:
 ### Live backend routes
 
 - `GET /health`
+- `POST /api/agents/chat`
+- `POST /api/ecg/apple-watch/infer`
 - `POST /api/screening/prenatal-cvd`
 - `POST /api/screening/prenatal-expanded` *(backend-only; not wired to frontend UI yet)*
-- `POST /api/screening/postnatal-followup` *(backend-only; not wired to frontend UI yet)*
+- `POST /api/screening/postnatal-followup` *(wired to the frontend postpartum risk profile flow)*
+
+### `POST /api/ecg/apple-watch/infer`
+
+Runs an Apple Watch Lead I ECG prototype checkpoint and returns model probabilities for uploaded ECG samples. The endpoint accepts either `healthExport.data.ecg` with `recordIndex` or a single `ecgRecord`, excludes raw waveform values from responses, and includes `Predictions are experimental and not clinically validated.` in every successful response.
+
+This ECG route is a prototype only. It is not a diagnostic medical device and should not be described as clinically validated or used to conclude that a user's heart is normal or abnormal.
 
 ### `POST /api/screening/prenatal-cvd`
 
-Runs the shipped prenatal CVD follow-up prioritization model. The endpoint accepts frontend-shaped prenatal risk form fields and maps them to the model's internal feature names.
+Runs the shipped prenatal CVD follow-up prioritization model. The endpoint accepts frontend-shaped prenatal risk form fields and maps them to the model's internal feature names. The frontend calculates `prepregnancyBmi` from pre-pregnancy height and weight before submitting.
 
 Example request:
 
@@ -144,7 +156,7 @@ Important response fields:
 - `safety_note`
 - `disclaimer`
 
-The current `POST /api/screening/prenatal-cvd` endpoint supports `pregnancyMode: "prenatal"` only and does not accept postnatal/postpartum submissions. Postpartum UI fields exist, and backend follow-up routes (`/api/screening/prenatal-expanded` and `/api/screening/postnatal-followup`) are available for API use, but are not wired to the frontend UI yet.
+The current `POST /api/screening/prenatal-cvd` endpoint supports `pregnancyMode: "prenatal"` only and does not accept postnatal/postpartum submissions. Postpartum submissions use `POST /api/screening/postnatal-followup`; `POST /api/screening/prenatal-expanded` remains backend-only.
 
 Validation summary:
 
@@ -176,7 +188,8 @@ python -m pytest
 Focused backend API tests:
 
 ```bash
-python -m pytest tests/test_prenatal_cvd_api.py
+python -m pytest tests/test_prenatal_cvd_api.py tests/test_maternal_screening_api.py
+python -m pytest tests/test_apple_watch_ecg_api.py
 ```
 
 ## The Science
@@ -185,9 +198,11 @@ Risk factors tracked by the prenatal model include advanced maternal age, pre-pr
 
 The shipped prenatal backend model is a follow-up prioritization aid trained from CDC natality-derived features. It outputs a calibrated proxy signal and a low/medium/high follow-up tier.
 
-Important clinical limitation: the model output is not a diagnosis and is not a direct cardiovascular disease probability. Clinical judgment should guide care decisions.
+The Apple Watch Lead I ECG backend route uses a prototype research checkpoint and outputs probabilities only. Predictions are experimental and not clinically validated.
 
-Postpartum risk profiling is currently represented in the UI as collected form fields and is not yet connected to the backend-only screening routes (`/api/screening/prenatal-expanded` and `/api/screening/postnatal-followup`).
+Important clinical limitation: model output is not a diagnosis and is not a direct cardiovascular disease probability. Clinical judgment should guide care decisions.
+
+Postpartum risk profiling is connected to the postnatal follow-up route and uses model-aligned delivery, maternal, and newborn context fields. The prenatal-expanded screening route remains backend-only.
 
 ## Research Foundation
 
@@ -201,6 +216,7 @@ Postpartum risk profiling is currently represented in the UI as collected form f
 - Do not commit raw local datasets or temporary backend outputs.
 - `backend/data/`, `backend/tmp/`, generated archives, Python caches, and non-default model outputs are ignored.
 - The runtime prenatal model package is kept under `backend/models/cdc-natality/default/`.
+- The Apple Watch Lead I ECG prototype checkpoint is kept under `backend/models/lead1_dataset_invariance/`.
 - Keep frontend integration and backend API behavior aligned with `backend/API_REFERENCES.md`.
 
 ## Team

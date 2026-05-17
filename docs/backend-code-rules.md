@@ -57,20 +57,24 @@ python --version
 - Core model inference belongs in `backend/scripts/maternal/prenatal_cvd_model_a.py`.
 - Do not duplicate model feature mapping, thresholds, artifact loading, or response shaping across routers and scripts.
 - Agent orchestration belongs in `backend/backend/services/agents/`; route modules should not own provider selection, tool registration, subagent allowlists, or runtime state wiring.
+- Apple Watch ECG parsing, preprocessing, checkpoint loading, and inference belong in `backend/backend/services/apple_watch_ecg.py` and `backend/backend/services/lead1_ecg_runtime.py`, not in route handlers.
 
 ## 4. Preserve the Prenatal Screening API Contract
 
 - Current public backend API surface:
   - `GET /health`
   - `POST /api/agents/chat`
+  - `POST /api/ecg/apple-watch/infer`
   - `POST /api/screening/prenatal-cvd`
   - `POST /api/screening/prenatal-expanded` (backend-only; not wired to frontend UI yet)
-  - `POST /api/screening/postnatal-followup` (backend-only; not wired to frontend UI yet)
+  - `POST /api/screening/postnatal-followup` (wired to the frontend postpartum risk profile flow)
 - `POST /api/agents/chat` invokes the service-owned agent runtime and must keep provider errors generic.
+- `POST /api/ecg/apple-watch/infer` invokes the service-owned Apple Watch Lead I ECG prototype runtime and must keep model errors generic.
 - `POST /api/screening/prenatal-cvd` accepts frontend-shaped camelCase fields.
 - Preserve the frontend-compatible `prenatal_cvd_followup_proxy_probability` response alias unless the frontend contract and API docs change in the same update.
 - Preserve response safety language that the model is a risk-prioritization aid, not a diagnosis or direct cardiovascular disease probability.
 - Keep `model_version`, response examples, and documented artifact expectations consistent with the shipped model package.
+- Keep the Apple Watch ECG caveat exactly as `Predictions are experimental and not clinically validated.` and do not return or log raw `voltageMeasurements`.
 
 ## 5. Keep Request Validation in Schemas
 
@@ -86,14 +90,15 @@ python --version
 
 ## 7. Protect Shipped Model Artifacts
 
-- Runtime inference loads from `backend/models/cdc-natality/default/`.
-- Required runtime artifacts include:
+- Prenatal runtime inference loads from `backend/models/cdc-natality/default/`.
+- Apple Watch Lead I ECG prototype inference loads from `backend/models/lead1_dataset_invariance/best_kept_adversarial.pt`.
+- Required prenatal runtime artifacts include:
   - `preprocessor.joblib`
   - `calibrator.joblib`
   - `thresholds.json`
   - `feature_config.yaml`
 - Do not edit shipped model artifacts unless the user explicitly asks.
-- Treat non-default model folders as research artifacts unless explicitly asked to update or ship them.
+- Treat other non-default model folders as research artifacts unless explicitly asked to update or ship them.
 
 ## 8. Keep Model Mapping Explicit and Tested
 
@@ -105,7 +110,7 @@ python --version
 
 - The prenatal endpoint supports `pregnancyMode: "prenatal"` only.
 - Do not add postpartum behavior, alternate model modes, or new screening endpoints without a model contract and updated tests/docs.
-- If a user-facing mode is only a frontend placeholder, document it honestly as a placeholder until real backend support exists.
+- If a user-facing clinical mode is only a frontend placeholder, document it honestly as a placeholder until real backend support exists.
 
 ## 10. Keep Data and Research Artifacts Out of Commits
 

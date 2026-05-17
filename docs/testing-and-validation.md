@@ -48,10 +48,10 @@ python -m pytest tests/test_agent_runtime.py
 python -m pytest tests/test_agent_chat_api.py
 ```
 
-Run the focused prenatal API tests:
+Run the focused screening API tests:
 
 ```bash
-python -m pytest tests/test_prenatal_cvd_api.py
+python -m pytest tests/test_prenatal_cvd_api.py tests/test_maternal_screening_api.py
 ```
 
 Run the backend API locally:
@@ -74,6 +74,14 @@ curl -X POST http://127.0.0.1:45261/api/screening/prenatal-cvd \
   -d '{"pregnancyMode":"prenatal","age":"35","prepregnancyBmi":"32.0","chronicHypertension":true,"diabetes":false,"priorPretermOrStillbirth":true,"liveBirthsCount":"1","smokedPregnancy":false,"multipleGestation":false}'
 ```
 
+Postnatal follow-up smoke request:
+
+```bash
+curl -X POST http://127.0.0.1:45261/api/screening/postnatal-followup \
+  -H 'Content-Type: application/json' \
+  -d '{"mother_age":"36","mother_bmi":"34.2","prepregnancy_hypertension":true,"prepregnancy_diabetes":true,"prior_live_births":"1","prior_dead_births":"0","previous_preterm_birth":true,"previous_cesarean":true,"previous_cesarean_count":"1","gestational_hypertension":true,"eclampsia":false,"gestational_diabetes":true,"maternal_transfusion":false,"ruptured_uterus":false,"unplanned_hysterectomy":false,"maternal_icu":true,"obstetric_estimate_gestation_weeks":"35","birth_weight_grams":"2200","abnormal_condition_nicu":true,"apgar_5_min":"7","apgar_10_min":"8"}'
+```
+
 ## Current test surface
 
 Backend tests currently live under `backend/tests/`.
@@ -83,6 +91,7 @@ Primary backend coverage:
 - `backend/tests/test_agent_runtime.py` — deterministic provider selection, thread ID, tool allowlist, subagent allowlist, and runtime profile coverage without live LLM calls.
 - `backend/tests/test_agent_chat_api.py` — FastAPI agent chat success, validation failure, and runtime-unavailable behavior without live LLM calls.
 - `backend/tests/test_prenatal_cvd_api.py` — FastAPI health check, prenatal screening success path, validation failures, and model-unavailable behavior.
+- `backend/tests/test_maternal_screening_api.py` — FastAPI prenatal-expanded and postnatal-followup success, validation, unknown-field, and model-unavailable behavior.
 
 Frontend automated tests are not currently defined in `package.json`; use `npm run lint` and `npm run build` as the current automated frontend checks.
 
@@ -91,7 +100,7 @@ Frontend automated tests are not currently defined in `package.json`; use `npm r
 | Change surface | Required validation |
 | --- | --- |
 | Frontend UI, styling, 3D heart, onboarding, upload, or insight panel changes | `npm run lint`, `npm run build`, and browser smoke of the changed flow when possible |
-| Frontend prenatal API wiring | Frontend checks, browser smoke, and backend prenatal API tests |
+| Frontend prenatal or postnatal screening API wiring | Frontend checks, browser smoke, and backend screening API tests |
 | Backend route/schema/service changes | Relevant focused tests, such as `python -m pytest tests/test_prenatal_cvd_api.py`, `python -m pytest tests/test_agent_runtime.py`, or `python -m pytest tests/test_agent_chat_api.py` |
 | Backend API contract changes | Focused backend tests plus `backend/API_REFERENCES.md` update |
 | Model mapping or model-error behavior changes | Focused backend tests covering success, validation, and `503` behavior |

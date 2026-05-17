@@ -25,10 +25,14 @@ Backend API:
 - `backend/backend/services/` — model input mapping, inference wrappers, and service-owned runtime modules.
 - `backend/backend/services/agents/` — route-free LangChain/deepagents runtime, provider selection, tools, and subagents.
 - `backend/backend/routers/screening.py` — screening routes.
+- `backend/backend/routers/ecg.py` — Apple Watch ECG prototype inference route.
 - `backend/backend/schemas/screening.py` — Pydantic API request schema.
+- `backend/backend/schemas/ecg.py` — Apple Watch ECG request schema.
 - `backend/backend/services/prenatal_cvd.py` — frontend-payload to model-input mapping and inference wrapper.
+- `backend/backend/services/lead1_ecg_runtime.py` — copied Lead I ECG prototype architecture, preprocessing, checkpoint loading, and inference runtime.
 - `backend/tests/test_agent_runtime.py` — deterministic agent runtime/provider/tool/subagent coverage.
 - `backend/tests/test_prenatal_cvd_api.py` — current backend API test coverage.
+- `backend/tests/test_apple_watch_ecg_api.py` — Apple Watch ECG route and preprocessing coverage.
 - `backend/API_REFERENCES.md` — detailed request/response contract.
 
 Models, data, and scripts:
@@ -37,6 +41,7 @@ Models, data, and scripts:
 - `backend/models/cdc-natality/default/` — runtime model package loaded by the API.
 - `backend/models/cdc-natality/default/model_card.md` — shipped model limitations and intended-use notes.
 - `backend/models/cdc-natality/default/feature_config.yaml` — runtime feature list.
+- `backend/models/lead1_dataset_invariance/best_kept_adversarial.pt` — Apple Watch Lead I ECG prototype checkpoint.
 - `backend/docs/normalization-pipeline.md` — ECG/data normalization design.
 - `backend/docs/unified-schema-contract.json` — machine-readable normalization schema contract.
 - `backend/configs/maternal/prenatal_model_a_v1.yaml` — prenatal model training/config reference.
@@ -78,11 +83,11 @@ npm run build
 Important UI behavior:
 
 - The frontend keeps state orchestration in `src/App.tsx` and route ownership in `src/routes/*`.
-- User flow routes: `/` particle intro → `/onboarding` → `/risk-profile` (prenatal form) → `/heart` with right-side insight panels.
+- User flow routes: `/` particle intro → `/onboarding` → `/risk-profile` (prenatal/postpartum form) → `/heart` with right-side insight panels.
 - Upload entry routes: `/uploads/ecg` and `/uploads/doctor-note`.
-- Doctor-note OCR and ECG analysis are currently placeholder/mock flows in the frontend.
-- Prenatal risk submission/result rendering is integrated with `POST /api/screening/prenatal-cvd` through the typed frontend client in `src/api/screening.ts` and submit flow in `src/App.tsx`.
-- Postpartum risk fields remain a frontend backlog path; do not assume a postpartum backend endpoint exists.
+- Doctor-note OCR remains a placeholder/mock flow in the frontend; Apple Watch ECG upload analysis is wired to `POST /api/ecg/apple-watch/infer` through `src/api/ecg.ts`.
+- The ECG upload UI must not display raw waveform values and must keep the backend experimental caveat visible with model results.
+- Prenatal and postpartum risk submission/result rendering are integrated with `POST /api/screening/prenatal-cvd` and `POST /api/screening/postnatal-followup` through `src/api/screening.ts` and submit flow in `src/App.tsx`.
 
 3D asset guardrails:
 
@@ -126,12 +131,17 @@ cd /Users/benj/Documents/Coding/VenusHacks26/backend
 python -m pytest
 python -m pytest tests/test_agent_runtime.py
 python -m pytest tests/test_prenatal_cvd_api.py
+python -m pytest tests/test_apple_watch_ecg_api.py
 ```
 
 Current API surface:
 
 - `GET /health`
+- `POST /api/agents/chat`
+- `POST /api/ecg/apple-watch/infer`
 - `POST /api/screening/prenatal-cvd`
+- `POST /api/screening/prenatal-expanded`
+- `POST /api/screening/postnatal-followup`
 
 Agent runtime guardrails:
 
@@ -145,6 +155,7 @@ Prenatal endpoint guardrails:
 - Do not add postpartum endpoint behavior without a model contract.
 - Validation failures should remain FastAPI/Pydantic `422` responses.
 - Model-layer failures should return `503` with a safe generic detail message.
+- The Apple Watch ECG route must not log, persist, or return raw `voltageMeasurements`; every successful response must include `Predictions are experimental and not clinically validated.`
 - Backend CORS should remain least-privilege and limited to local Vite origins (`localhost`/`127.0.0.1` on the configured frontend dev port).
 - Do not expose local filesystem paths, raw artifact internals, or stack traces in API responses.
 - Keep `backend/API_REFERENCES.md`, route/schema/service code, and API tests aligned when changing API behavior.
@@ -152,16 +163,18 @@ Prenatal endpoint guardrails:
 
 Frontend-to-model mapping:
 
-- The endpoint accepts frontend-shaped camelCase fields.
-- `backend/backend/services/prenatal_cvd.py` maps those fields to model features before calling `predict_prenatal_cvd_risk`.
+- The prenatal CVD endpoint accepts frontend-shaped camelCase fields.
+- `backend/backend/services/prenatal_cvd.py` maps those fields to v3.1 expanded prenatal model features before calling `predict_prenatal_expanded_screening_v3_1_timing_safe`.
 - Preserve the `prenatal_cvd_followup_proxy_probability` alias for frontend compatibility unless the frontend contract is updated at the same time.
+- The postnatal follow-up endpoint accepts model-aligned snake_case fields.
 
 Model artifact expectations:
 
-- Runtime inference loads from `backend/models/cdc-natality/default/`.
-- Required runtime artifacts include `preprocessor.joblib`, `calibrator.joblib`, `thresholds.json`, and `feature_config.yaml`.
-- The model output is a follow-up prioritization aid, not a diagnosis and not a direct cardiovascular disease probability.
-- Treat non-default model folders as research artifacts unless explicitly asked to update or ship them.
+- Prenatal runtime inference loads from `backend/models/cdc-natality/prenatal_expanded_screening_v3_1_timing_safe/`.
+- Postnatal follow-up inference loads from `backend/models/cdc-natality/postnatal_followup_v1/`.
+- Apple Watch Lead I ECG prototype inference loads from `backend/models/lead1_dataset_invariance/best_kept_adversarial.pt`.
+- The model output is a follow-up prioritization aid or prototype probability signal, not a diagnosis and not a direct cardiovascular disease probability.
+- Treat other non-default model folders as research artifacts unless explicitly asked to update or ship them.
 - Do not edit shipped model artifacts unless the user explicitly asks.
 
 ## Data, Normalization, and Research Guardrails

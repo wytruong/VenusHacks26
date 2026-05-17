@@ -1,4 +1,7 @@
 import {
+  type PostnatalFollowupRequest,
+  type PostnatalFollowupResponse,
+  type PostnatalFollowupSignal,
   type PrenatalCvdRequest,
   type PrenatalCvdResponse,
   ScreeningApiError,
@@ -45,13 +48,56 @@ function isPrenatalCvdResponse(data: unknown): data is PrenatalCvdResponse {
   )
 }
 
-export async function submitPrenatalCvdScreening(
-  payload: PrenatalCvdRequest,
-): Promise<PrenatalCvdResponse> {
+function isPostnatalSignal(data: unknown): data is PostnatalFollowupSignal {
+  if (data === undefined) return true
+  if (!data || typeof data !== 'object') return false
+
+  const candidate = data as Record<string, unknown>
+  const mainFactors = candidate.main_factors
+
+  return (
+    (candidate.present === undefined || typeof candidate.present === 'boolean') &&
+    (candidate.tier === undefined || typeof candidate.tier === 'string') &&
+    (mainFactors === undefined ||
+      (Array.isArray(mainFactors) && mainFactors.every((factor) => typeof factor === 'string')))
+  )
+}
+
+function isStringArray(data: unknown): data is string[] {
+  return Array.isArray(data) && data.every((item) => typeof item === 'string')
+}
+
+function isPostnatalFollowupResponse(data: unknown): data is PostnatalFollowupResponse {
+  if (!data || typeof data !== 'object') return false
+  const candidate = data as Record<string, unknown>
+
+  return (
+    typeof candidate.model_mode === 'string' &&
+    typeof candidate.overall_followup_priority === 'string' &&
+    isPostnatalSignal(candidate.hypertension_followup_signal) &&
+    isPostnatalSignal(candidate.diabetes_followup_signal) &&
+    isPostnatalSignal(candidate.maternal_cv_metabolic_followup_signal) &&
+    isPostnatalSignal(candidate.obstetric_neonatal_context_signal) &&
+    isPostnatalSignal(candidate.severe_maternal_morbidity_followup_signal) &&
+    (candidate.missing_inputs === undefined || isStringArray(candidate.missing_inputs)) &&
+    (candidate.data_quality_warnings === undefined || isStringArray(candidate.data_quality_warnings)) &&
+    (candidate.safety_note === undefined || typeof candidate.safety_note === 'string')
+  )
+}
+
+async function postScreeningRequest<TResponse>(
+  endpoint: string,
+  payload: unknown,
+  isExpectedResponse: (data: unknown) => data is TResponse,
+  messages: {
+    validation: string
+    unavailable: string
+  },
+): Promise<TResponse> {
   let response: Response
 
   try {
-    response = await fetch(`${API_BASE_URL}/api/screening/prenatal-cvd`, {
+    response = await fetch(`${API_BASE_URL}${endpoint}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -66,17 +112,11 @@ export async function submitPrenatalCvdScreening(
   }
 
   if (response.status === 422) {
-    throw new ScreeningApiError(
-      'validation',
-      'Some answers are missing or invalid. Please review your risk profile and try again.',
-    )
+    throw new ScreeningApiError('validation', messages.validation)
   }
 
   if (response.status === 503) {
-    throw new ScreeningApiError(
-      'unavailable',
-      'Prenatal screening is temporarily unavailable. Please try again later or contact your care team.',
-    )
+    throw new ScreeningApiError('unavailable', messages.unavailable)
   }
 
   if (!response.ok) {
@@ -88,7 +128,7 @@ export async function submitPrenatalCvdScreening(
 
   const data: unknown = await response.json()
 
-  if (!isPrenatalCvdResponse(data)) {
+  if (!isExpectedResponse(data)) {
     throw new ScreeningApiError(
       'unexpected',
       'We received an unexpected response. Please try again later.',
@@ -96,4 +136,34 @@ export async function submitPrenatalCvdScreening(
   }
 
   return data
+}
+
+export async function submitPrenatalCvdScreening(
+  payload: PrenatalCvdRequest,
+): Promise<PrenatalCvdResponse> {
+  return postScreeningRequest(
+    '/api/screening/prenatal-cvd',
+    payload,
+    isPrenatalCvdResponse,
+    {
+      validation: 'Some answers are missing or invalid. Please review your risk profile and try again.',
+      unavailable:
+        'Prenatal screening is temporarily unavailable. Please try again later or contact your care team.',
+    },
+  )
+}
+
+export async function submitPostnatalFollowupScreening(
+  payload: PostnatalFollowupRequest,
+): Promise<PostnatalFollowupResponse> {
+  return postScreeningRequest(
+    '/api/screening/postnatal-followup',
+    payload,
+    isPostnatalFollowupResponse,
+    {
+      validation: 'Some postpartum answers are missing or invalid. Please review your risk profile and try again.',
+      unavailable:
+        'Postnatal follow-up screening is temporarily unavailable. Please try again later or contact your care team.',
+    },
+  )
 }
