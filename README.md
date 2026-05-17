@@ -83,7 +83,7 @@ npm install
 npm run dev
 ```
 
-Vite will print the local frontend URL in the terminal.
+The Vite dev server is pinned to `http://localhost:45260` to avoid common local port conflicts.
 
 ### 3. Start the backend API server
 
@@ -93,13 +93,13 @@ Use the Python 3.12 virtual environment that contains the backend runtime stack:
 source /Users/benj/Documents/Coding/cardiac_mvp/.venv/bin/activate
 cd /Users/benj/Documents/Coding/VenusHacks26/backend
 python -m pip install -r requirements.txt
-uvicorn backend.main:app --reload
+uvicorn backend.main:app --reload --port 45261
 ```
 
 Health check:
 
 ```bash
-curl http://127.0.0.1:8000/health
+curl http://127.0.0.1:45261/health
 ```
 
 Expected response:
@@ -120,7 +120,7 @@ Runs the shipped prenatal CVD follow-up prioritization model. The endpoint accep
 Example request:
 
 ```bash
-curl -X POST http://127.0.0.1:8000/api/screening/prenatal-cvd \
+curl -X POST http://127.0.0.1:45261/api/screening/prenatal-cvd \
   -H 'Content-Type: application/json' \
   -d '{"pregnancyMode":"prenatal","age":"35","prepregnancyBmi":"32.0","chronicHypertension":true,"diabetes":false,"priorPretermOrStillbirth":true,"liveBirthsCount":"1","smokedPregnancy":false,"multipleGestation":false}'
 ```

@@ -56,13 +56,13 @@ requirements.txt                  Backend Python dependencies
 From `/Users/benj/Documents/Coding/VenusHacks26/backend` with the required venv active:
 
 ```bash
-uvicorn backend.main:app --reload
+uvicorn backend.main:app --reload --port 45261
 ```
 
 Health check:
 
 ```bash
-curl http://127.0.0.1:8000/health
+curl http://127.0.0.1:45261/health
 ```
 
 Primary screening endpoint:

@@ -5,7 +5,7 @@
 FastAPI app entrypoint:
 
 ```bash
-uvicorn backend.main:app --reload
+uvicorn backend.main:app --reload --port 45261
 ```
 
 Run from `/Users/benj/Documents/Coding/VenusHacks26/backend` with the required Python 3.12 virtual environment active.
@@ -122,7 +122,7 @@ Model unavailable response:
 ### Smoke test
 
 ```bash
-curl -X POST http://127.0.0.1:8000/api/screening/prenatal-cvd \
+curl -X POST http://127.0.0.1:45261/api/screening/prenatal-cvd \
   -H 'Content-Type: application/json' \
   -d '{"pregnancyMode":"prenatal","age":"35","prepregnancyBmi":"32.0","chronicHypertension":true,"diabetes":false,"priorPretermOrStillbirth":true,"liveBirthsCount":"1","smokedPregnancy":false,"multipleGestation":false}'
 ```

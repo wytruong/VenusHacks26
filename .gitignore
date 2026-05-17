@@ -32,6 +32,7 @@ graphify-out/
 # Backend local data and generated artifacts
 backend/data/
 backend/tmp/
+backend/.venv/
 backend/archived/
 backend/**/__pycache__/
 backend/**/*.py[cod]
