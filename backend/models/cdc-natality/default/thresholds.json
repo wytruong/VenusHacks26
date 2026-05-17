@@ -1,9 +1,0 @@
-{
-  "high": 0.34900986091683645,
-  "low": 0.2,
-  "selection_data": "validation_only",
-  "target_recall": 0.85,
-  "threshold_selection_f1": 0.4445104698676475,
-  "threshold_selection_precision": 0.2990073672144027,
-  "threshold_selection_recall": 0.8658515492995223
-}

@@ -1,9 +1,0 @@
-feature,missing_rate,non_missing_count
-mother_age,0.0,3638436
-mother_bmi,0.024318141091392017,3549956
-prepregnancy_hypertension,0.002059676190539012,3630942
-prepregnancy_diabetes,0.002059676190539012,3630942
-prior_adverse_pregnancy_history,0.0,3638436
-prior_live_births,0.0026525133326517217,3628785
-smoking_before_or_during_pregnancy,0.0,3638436
-multiple_gestation_known_or_suspected,0.0,3638436
