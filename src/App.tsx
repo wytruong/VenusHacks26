@@ -594,7 +594,7 @@ export default function App() {
     >
       <div className="pointer-events-none fixed left-6 top-6 z-40 select-none md:left-8 md:top-8">
         <span className="text-sm font-light tracking-[0.14em] text-[#F4C2C2]">
-          heartwise
+          Hear Your Heart
         </span>
       </div>
 
