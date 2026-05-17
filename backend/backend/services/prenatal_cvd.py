@@ -1,7 +1,6 @@
 from typing import Any
 
 from backend.schemas.screening import PrenatalCvdRequest
-from scripts.maternal.prenatal_cvd_model_a import predict_prenatal_cvd_risk
 
 
 def to_model_input(payload: PrenatalCvdRequest) -> dict[str, Any]:
@@ -18,6 +17,8 @@ def to_model_input(payload: PrenatalCvdRequest) -> dict[str, Any]:
 
 
 def predict_from_frontend_payload(payload: PrenatalCvdRequest) -> dict[str, Any]:
+    from scripts.maternal.prenatal_cvd_model_a import predict_prenatal_cvd_risk
+
     result = predict_prenatal_cvd_risk(to_model_input(payload))
     probability = result.get("current_composite_signal", {}).get("probability")
     return {**result, "prenatal_cvd_followup_proxy_probability": probability}

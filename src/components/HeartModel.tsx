@@ -1,4 +1,12 @@
-import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  Suspense,
+  type Dispatch,
+  type SetStateAction,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import {
   BoxGeometry,
   Group,
@@ -227,7 +235,10 @@ function applySoftEmissiveToMaterial(material: Mesh['material']) {
   }
 }
 
-function useSelectedMeshEmissiveHighlight(selectedMesh: Mesh | null) {
+function useSelectedMeshEmissiveHighlight(
+  scene: Group,
+  selectedMeshUuid: string | null,
+) {
   const selectionMaterialsRef = useRef<{
     mesh: Mesh
     originalMaterial: Mesh['material']
@@ -243,17 +254,20 @@ function useSelectedMeshEmissiveHighlight(selectedMesh: Mesh | null) {
       selectionMaterialsRef.current = null
     }
 
-    if (!selectedMesh) return
+    if (!selectedMeshUuid) return
 
-    const orig = selectedMesh.material
+    const target = scene.getObjectByProperty('uuid', selectedMeshUuid)
+    if (!(target instanceof Mesh)) return
+
+    const orig = target.material
     const cloned = Array.isArray(orig)
       ? orig.map((m) => m.clone())
       : orig.clone()
 
     applySoftEmissiveToMaterial(cloned)
-    selectedMesh.material = cloned
+    target.material = cloned
     selectionMaterialsRef.current = {
-      mesh: selectedMesh,
+      mesh: target,
       originalMaterial: orig,
       highlightMaterial: cloned,
     }
@@ -266,18 +280,18 @@ function useSelectedMeshEmissiveHighlight(selectedMesh: Mesh | null) {
       disposeMaterialClone(highlightMaterial)
       selectionMaterialsRef.current = null
     }
-  }, [selectedMesh])
+  }, [scene, selectedMeshUuid])
 }
 
 type HeartMeshProps = {
   onSelect: (payload: MeshSelectPayload | null) => void
-  selectedMesh: Mesh | null
-  onSelectMesh: (mesh: Mesh) => void
+  selectedMeshUuid: string | null
+  onSelectMesh: Dispatch<SetStateAction<string | null>>
 }
 
 function HeartMesh({
   onSelect,
-  selectedMesh,
+  selectedMeshUuid,
   onSelectMesh,
 }: HeartMeshProps) {
   const gltf = useGLTF(MODEL_URL)
@@ -291,7 +305,7 @@ function HeartMesh({
     [gltf.scene],
   )
   useCursor(cursorHover)
-  useSelectedMeshEmissiveHighlight(selectedMesh)
+  useSelectedMeshEmissiveHighlight(gltf.scene, selectedMeshUuid)
 
   useEffect(() => {
     const scene = gltf.scene
@@ -383,7 +397,7 @@ function HeartMesh({
           console.log(
             `CLICKED: ${mesh.name} → resolved to: ${payload.label}`,
           )
-          onSelectMesh(mesh)
+          onSelectMesh(mesh.uuid)
           onSelect(payload)
           e.stopPropagation()
         }}
@@ -406,10 +420,10 @@ type HeartModelProps = {
 export default function HeartModel({
   onSelect,
 }: HeartModelProps) {
-  const [selectedMesh, setSelectedMesh] = useState<Mesh | null>(null)
+  const [selectedMeshUuid, setSelectedMeshUuid] = useState<string | null>(null)
 
   const handlePointerMissed = () => {
-    setSelectedMesh(null)
+    setSelectedMeshUuid(null)
     onSelect(null)
   }
 
@@ -439,8 +453,8 @@ export default function HeartModel({
         <Suspense fallback={null}>
           <HeartMesh
             onSelect={onSelect}
-            selectedMesh={selectedMesh}
-            onSelectMesh={setSelectedMesh}
+            selectedMeshUuid={selectedMeshUuid}
+            onSelectMesh={setSelectedMeshUuid}
           />
         </Suspense>
         <AdaptiveDpr />

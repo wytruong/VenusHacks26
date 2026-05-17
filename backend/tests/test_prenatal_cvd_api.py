@@ -105,3 +105,33 @@ def test_model_failure_returns_controlled_error(monkeypatch: Any) -> None:
 
     assert response.status_code == 503
     assert response.json() == {"detail": "Prenatal screening model is unavailable."}
+
+
+def test_cors_preflight_allows_local_vite_origin() -> None:
+    response = client.options(
+        "/api/screening/prenatal-cvd",
+        headers={
+            "Origin": "http://localhost:45260",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "Content-Type",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "http://localhost:45260"
+    assert "POST" in response.headers["access-control-allow-methods"]
+    assert "Content-Type" in response.headers["access-control-allow-headers"]
+
+
+def test_cors_preflight_rejects_unapproved_origin() -> None:
+    response = client.options(
+        "/api/screening/prenatal-cvd",
+        headers={
+            "Origin": "http://127.0.0.1:45261",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "Content-Type",
+        },
+    )
+
+    assert response.status_code == 400
+    assert "access-control-allow-origin" not in response.headers

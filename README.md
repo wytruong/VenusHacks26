@@ -30,11 +30,13 @@ All three paths lead to an immersive 3D heart visualization with plain-language 
 - Pregnancy onboarding with prenatal and postpartum modes.
 - Maternal cardiac risk factor form with 8 prenatal inputs and 5 postpartum clinical flags.
 - FastAPI prenatal screening endpoint backed by shipped model artifacts.
+- Typed frontend screening API client (`src/api/screening.ts`) with user-safe error handling.
 - Apple Watch ECG upload placeholder flow.
 - Doctor note upload placeholder flow with mocked OCR-style result.
 - Personalized patient profile with photo, medications, allergies, and doctor visit notes.
 - Risk tier output — low, medium, high — with contributing factors and recommended next steps.
 - Doctor script for patient-provider follow-up conversations.
+- Route-owned frontend flow: `/`, `/onboarding`, `/risk-profile`, `/heart`, `/uploads/ecg`, `/uploads/doctor-note`.
 
 ## Tech Stack
 
@@ -136,6 +138,8 @@ Important response fields:
 - `disclaimer`
 
 The current backend endpoint supports `pregnancyMode: "prenatal"` only. Postpartum UI fields exist, but a postpartum model endpoint has not been implemented yet.
+
+For local development, backend CORS is intentionally limited to the Vite dev origins on port `45260` (`localhost` and `127.0.0.1`).
 
 See `backend/API_REFERENCES.md` for the complete API contract.
 

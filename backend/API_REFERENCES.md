@@ -10,6 +10,16 @@ uvicorn backend.main:app --reload --port 45261
 
 Run from `/Users/benj/Documents/Coding/VenusHacks26/backend` with the required Python 3.12 virtual environment active.
 
+## Local CORS policy
+
+For local frontend integration, CORS is intentionally restricted to Vite dev origins.
+This supports the current frontend risk API integration while keeping local origins explicit.
+
+- Allowed origins: `http://localhost:45260`, `http://127.0.0.1:45260`
+- Allowed methods: `GET`, `POST`, `OPTIONS`
+- Allowed headers: `Content-Type`
+- Credentials: not enabled
+
 ## `GET /health`
 
 Health check for the backend service.
@@ -118,6 +128,8 @@ Model unavailable response:
   "detail": "Prenatal screening model is unavailable."
 }
 ```
+
+No backend endpoints are currently provided for postpartum screening, ECG interpretation uploads, or doctor-note OCR; those frontend flows remain placeholders/backlog.
 
 ### Smoke test
 

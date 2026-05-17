@@ -37,25 +37,28 @@ npm run build
 
 ## 2. Preserve the Core App Flow Unless Redesigning It
 
-- The current app is mostly a single stateful flow in `src/App.tsx`.
+- The app keeps state in `src/App.tsx` while route ownership is explicit in `src/routes/*`.
 - Preserve the expected user flow unless the task explicitly redesigns it:
-  1. particle intro
-  2. pregnancy onboarding
-  3. heart reveal
-  4. right-side insight panels
-- Entry points are pregnancy risk profile, doctor note upload, and ECG upload.
-- Do not introduce route-based assumptions unless the app is intentionally refactored to routes.
+  1. `/` particle intro
+  2. `/onboarding` pregnancy onboarding
+  3. `/risk-profile` prenatal risk form
+  4. `/heart` heart reveal with right-side insight panels
+- Upload entry routes are `/uploads/ecg` and `/uploads/doctor-note`.
+- Keep direct route loads safe: initialize view state or redirect to an earlier safe route, never crash on missing in-memory state.
 
 ## 3. Keep Placeholder Clinical Flows Honest
 
-- Doctor-note OCR, ECG analysis, and pregnancy risk result rendering are currently placeholder/mock flows unless code verification shows otherwise.
-- Placeholder flows must not imply real diagnosis, real OCR, real ECG interpretation, or live backend analysis.
+- Doctor-note OCR and ECG analysis are currently placeholder/mock frontend flows.
+- Prenatal risk submission is wired to the backend `POST /api/screening/prenatal-cvd` endpoint; postpartum risk remains a UI-only backlog state.
+- Placeholder flows must not imply real diagnosis, real OCR, real ECG interpretation, or live backend analysis where no endpoint exists.
 - When replacing a placeholder with real behavior, update UI copy, error states, loading states, docs, and tests/checks for that behavior.
 
 ## 4. Keep API Integration Typed and User-Safe
 
-- The backend currently exposes `POST /api/screening/prenatal-cvd`; frontend integration with that endpoint must be verified in `src/App.tsx` before assuming it exists.
-- Future API wiring should start near the pregnancy risk submit/result state unless the app is refactored first.
+- The backend currently exposes `POST /api/screening/prenatal-cvd`; the frontend uses a typed API client in `src/api/screening.ts` and submits from `src/App.tsx`.
+- Keep the frontend API base URL aligned with backend runtime (`VITE_API_BASE_URL`, default `http://127.0.0.1:45261`).
+- Postpartum form submissions must not be sent to the prenatal endpoint.
+- Additional API wiring should stay near the pregnancy risk submit/result state unless the app is refactored first.
 - Keep frontend payload fields aligned with `backend/API_REFERENCES.md` and backend schemas.
 - Handle loading, validation errors, backend unavailability, and empty/missing responses with user-safe messages.
 - Do not expose backend stack traces, local paths, or model artifact details in the UI.

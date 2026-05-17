@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -sS -X POST http://127.0.0.1:45261/api/screening/prenatal-cvd -H 'Content-Type: application/json' -d '{\"pregnancyMode\":\"prenatal\",\"age\":\"39\",\"prepregnancyBmi\":\"35.5\",\"chronicHypertension\":true,\"diabetes\":true,\"priorPretermOrStillbirth\":true,\"liveBirthsCount\":\"2\",\"smokedPregnancy\":true,\"multipleGestation\":true}')",
+      "Bash(npm run *)"
+    ]
+  }
+}

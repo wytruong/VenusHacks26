@@ -75,12 +75,12 @@ npm run build
 
 Important UI behavior:
 
-- The current frontend is mostly a single stateful flow in `src/App.tsx`, not a route-based app.
-- User flow: particle intro → pregnancy onboarding → heart reveal → right-side insight panels.
-- Entry points are pregnancy risk profile, doctor note upload, and ECG upload.
-- Doctor-note OCR, ECG analysis, and pregnancy risk result rendering are currently placeholder/mock flows in the frontend. Do not assume they are already wired to real backend services.
-- The backend currently exposes a prenatal model endpoint, but frontend integration with that endpoint is not yet implemented unless you verify otherwise in `src/App.tsx`.
-- There is no frontend API client abstraction yet; future API wiring will likely start in `handlePregnancyRiskSubmit` / risk-result state in `src/App.tsx` unless the app is refactored first.
+- The frontend keeps state orchestration in `src/App.tsx` and route ownership in `src/routes/*`.
+- User flow routes: `/` particle intro → `/onboarding` → `/risk-profile` (prenatal form) → `/heart` with right-side insight panels.
+- Upload entry routes: `/uploads/ecg` and `/uploads/doctor-note`.
+- Doctor-note OCR and ECG analysis are currently placeholder/mock flows in the frontend.
+- Prenatal risk submission/result rendering is integrated with `POST /api/screening/prenatal-cvd` through the typed frontend client in `src/api/screening.ts` and submit flow in `src/App.tsx`.
+- Postpartum risk fields remain a frontend backlog path; do not assume a postpartum backend endpoint exists.
 
 3D asset guardrails:
 
@@ -136,6 +136,7 @@ Prenatal endpoint guardrails:
 - Do not add postpartum endpoint behavior without a model contract.
 - Validation failures should remain FastAPI/Pydantic `422` responses.
 - Model-layer failures should return `503` with a safe generic detail message.
+- Backend CORS should remain least-privilege and limited to local Vite origins (`localhost`/`127.0.0.1` on the configured frontend dev port).
 - Do not expose local filesystem paths, raw artifact internals, or stack traces in API responses.
 - Keep `backend/API_REFERENCES.md`, route/schema/service code, and API tests aligned when changing API behavior.
 - Update this root `AGENTS.md` only when durable repo-wide context changes, such as major file moves, new runtime services, changed default ports, or changed cross-cutting guardrails.
