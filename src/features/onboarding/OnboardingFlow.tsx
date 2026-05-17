@@ -1,10 +1,10 @@
-import { type Dispatch, type SetStateAction } from 'react'
+import { useState, type ChangeEvent, type Dispatch, type RefObject, type SetStateAction } from 'react'
 import { motion } from 'framer-motion'
-import { dmSans, glassFieldCardStyle, glassNumberInputStyle, glassPillButton, glassTogglePill } from '../../shared/styles'
+import { dmSans, glassFieldCardStyle, glassNumberInputStyle, glassPillButton, glassTogglePill, profilePanelGlassInputStyle } from '../../shared/styles'
 import { easeSoftOut, ONBOARDING_EXIT_DURATION_S } from '../../shared/animation'
 import type { RiskFactors } from '../risk-profile/riskProfile.types'
 
-type OnboardingSubStep = 'question' | 'pregnancyStage' | 'riskFactors'
+type OnboardingSubStep = 'question' | 'pregnancyStage' | 'profileDetails' | 'riskFactors'
 
 type OnboardingFlowProps = {
   bg: string
@@ -20,6 +20,23 @@ type OnboardingFlowProps = {
   createEmptyRiskFactors: (mode: 'prenatal' | 'postpartum') => RiskFactors
   onSubmitRisk: () => void
   riskSubmitMessage: string | null
+  profileAvatarInputRef: RefObject<HTMLInputElement | null>
+  profileAvatarUrl: string | null
+  onProfileAvatarChange: (event: ChangeEvent<HTMLInputElement>) => void
+  profileDisplayName: string
+  setProfileDisplayName: (value: string) => void
+  profileAge: string
+  setProfileAge: (value: string) => void
+  profileWeeksPregnant: string
+  setProfileWeeksPregnant: (value: string) => void
+  profileWeeksPostpartum: string
+  setProfileWeeksPostpartum: (value: string) => void
+  profileMedications: string
+  setProfileMedications: (value: string) => void
+  profileAllergies: string
+  setProfileAllergies: (value: string) => void
+  profileLatestVisit: string
+  setProfileLatestVisit: (value: string) => void
 }
 
 function GlassYesNo({ value, onPick }: { value: boolean | null; onPick: (v: boolean) => void }) {
@@ -45,6 +62,10 @@ function GlassYesNo({ value, onPick }: { value: boolean | null; onPick: (v: bool
   )
 }
 
+function hasInvalidNumber(value: string) {
+  return value.trim() !== '' && Number.isNaN(Number(value))
+}
+
 export default function OnboardingFlow({
   bg,
   show,
@@ -59,8 +80,60 @@ export default function OnboardingFlow({
   createEmptyRiskFactors,
   onSubmitRisk,
   riskSubmitMessage,
+  profileAvatarInputRef,
+  profileAvatarUrl,
+  onProfileAvatarChange,
+  profileDisplayName,
+  setProfileDisplayName,
+  profileAge,
+  setProfileAge,
+  profileWeeksPregnant,
+  setProfileWeeksPregnant,
+  profileWeeksPostpartum,
+  setProfileWeeksPostpartum,
+  profileMedications,
+  setProfileMedications,
+  profileAllergies,
+  setProfileAllergies,
+  profileLatestVisit,
+  setProfileLatestVisit,
 }: OnboardingFlowProps) {
+  const [profileValidationMessage, setProfileValidationMessage] = useState<string | null>(null)
+
   if (!show) return null
+
+  const continueToRiskFactors = () => {
+    setProfileValidationMessage(null)
+
+    if (hasInvalidNumber(profileAge) || Number(profileAge) < 0) {
+      setProfileValidationMessage('Please enter a valid non-negative age, or leave it blank.')
+      return
+    }
+
+    if (pregnancyMode === 'prenatal') {
+      const weeks = Number(profileWeeksPregnant)
+      if (
+        hasInvalidNumber(profileWeeksPregnant) ||
+        (profileWeeksPregnant.trim() !== '' && (weeks < 0 || weeks > 42))
+      ) {
+        setProfileValidationMessage('Please enter pregnancy weeks from 0 to 42, or leave it blank.')
+        return
+      }
+    }
+
+    if (pregnancyMode === 'postpartum') {
+      const weeks = Number(profileWeeksPostpartum)
+      if (
+        hasInvalidNumber(profileWeeksPostpartum) ||
+        (profileWeeksPostpartum.trim() !== '' && weeks < 0)
+      ) {
+        setProfileValidationMessage('Please enter a valid non-negative postpartum week, or leave it blank.')
+        return
+      }
+    }
+
+    setSubStep('riskFactors')
+  }
 
   return (
     <motion.div
@@ -108,7 +181,7 @@ export default function OnboardingFlow({
               onClick={() => {
                 setPregnancyMode('prenatal')
                 setRiskFactors(createEmptyRiskFactors('prenatal'))
-                setSubStep('riskFactors')
+                setSubStep('profileDetails')
               }}
             >
               I am currently pregnant
@@ -119,7 +192,7 @@ export default function OnboardingFlow({
               onClick={() => {
                 setPregnancyMode('postpartum')
                 setRiskFactors(createEmptyRiskFactors('postpartum'))
-                setSubStep('riskFactors')
+                setSubStep('profileDetails')
               }}
             >
               I recently gave birth
@@ -134,6 +207,68 @@ export default function OnboardingFlow({
             Skip for now
           </button>
         </>
+      ) : subStep === 'profileDetails' ? (
+        <motion.div key="profile-details" className="flex w-full max-w-xl flex-col items-center pb-8" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.55, ease: easeSoftOut }}>
+          <motion.h2 className="mb-2 text-center font-normal leading-snug text-[#FDF0F0]" style={{ fontFamily: dmSans, fontSize: 18 }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5, ease: easeSoftOut, delay: 0.06 }}>
+            Profile details
+          </motion.h2>
+          <p className="mb-8 max-w-lg text-center text-[12px] font-normal leading-snug text-[#D4B8B8]" style={{ fontFamily: dmSans }}>
+            This profile helps personalize your app experience. Your profile details are not sent to the prenatal screening model.
+          </p>
+
+          <div className="flex w-full flex-col gap-4" role="group" aria-labelledby="profile-details-heading">
+            <span id="profile-details-heading" className="sr-only">
+              Profile details form
+            </span>
+            <input ref={profileAvatarInputRef} id="profile-avatar-file" type="file" accept="image/*" className="hidden" onChange={onProfileAvatarChange} />
+            <label className="block text-sm font-normal text-[#FDF0F0]" style={{ fontFamily: dmSans }} htmlFor="profile-avatar-file">
+              Profile photo
+            </label>
+            <button type="button" onClick={() => profileAvatarInputRef.current?.click()} className="flex items-center gap-3 text-left" style={profilePanelGlassInputStyle} aria-label="Upload profile photo">
+              {profileAvatarUrl ? (
+                <img src={profileAvatarUrl} alt="Profile preview" className="h-8 w-8 rounded-full object-cover" />
+              ) : (
+                <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#F4C2C2] text-[11px] text-[#D4B8B8]" aria-hidden>+</span>
+              )}
+              <span className="text-[11px] text-[#D4B8B8]">Upload profile photo</span>
+            </button>
+            <label className="block text-sm font-normal text-[#FDF0F0]" style={{ fontFamily: dmSans }} htmlFor="profile-name">Display name</label>
+            <input id="profile-name" type="text" value={profileDisplayName} onChange={(e) => setProfileDisplayName(e.target.value)} placeholder="Your name" className="placeholder:text-[#D4B8B8]" style={profilePanelGlassInputStyle} />
+            <label className="block text-sm font-normal text-[#FDF0F0]" style={{ fontFamily: dmSans }} htmlFor="profile-age">Age (optional)</label>
+            <input id="profile-age" type="number" inputMode="numeric" min={0} value={profileAge} onChange={(e) => setProfileAge(e.target.value)} placeholder="Age" className="placeholder:text-[#D4B8B8] tabular-nums" style={profilePanelGlassInputStyle} />
+
+            {pregnancyMode === 'prenatal' ? (
+              <>
+                <label className="block text-sm font-normal text-[#FDF0F0]" style={{ fontFamily: dmSans }} htmlFor="profile-weeks-pregnant">Weeks pregnant (optional)</label>
+                <input id="profile-weeks-pregnant" type="number" inputMode="numeric" min={0} max={42} value={profileWeeksPregnant} onChange={(e) => setProfileWeeksPregnant(e.target.value)} placeholder="0 to 42" className="placeholder:text-[#D4B8B8] tabular-nums" style={profilePanelGlassInputStyle} />
+              </>
+            ) : null}
+
+            {pregnancyMode === 'postpartum' ? (
+              <>
+                <label className="block text-sm font-normal text-[#FDF0F0]" style={{ fontFamily: dmSans }} htmlFor="profile-weeks-postpartum">Weeks postpartum (optional)</label>
+                <input id="profile-weeks-postpartum" type="number" inputMode="numeric" min={0} value={profileWeeksPostpartum} onChange={(e) => setProfileWeeksPostpartum(e.target.value)} placeholder="e.g. 6" className="placeholder:text-[#D4B8B8] tabular-nums" style={profilePanelGlassInputStyle} />
+              </>
+            ) : null}
+
+            <label className="block text-sm font-normal text-[#FDF0F0]" style={{ fontFamily: dmSans }} htmlFor="profile-medications">Current medications</label>
+            <textarea id="profile-medications" value={profileMedications} onChange={(e) => setProfileMedications(e.target.value)} placeholder="List any medications you're taking" rows={2} className="placeholder:text-[#D4B8B8]" style={{ ...profilePanelGlassInputStyle, height: 60, minHeight: 60, resize: 'none' }} />
+            <label className="block text-sm font-normal text-[#FDF0F0]" style={{ fontFamily: dmSans }} htmlFor="profile-allergies">Allergies</label>
+            <textarea id="profile-allergies" value={profileAllergies} onChange={(e) => setProfileAllergies(e.target.value)} placeholder="List any known allergies" rows={2} className="placeholder:text-[#D4B8B8]" style={{ ...profilePanelGlassInputStyle, height: 40, minHeight: 40, resize: 'none' }} />
+            <label className="block text-sm font-normal text-[#FDF0F0]" style={{ fontFamily: dmSans }} htmlFor="profile-latest-visit">Latest doctor visit</label>
+            <textarea id="profile-latest-visit" value={profileLatestVisit} onChange={(e) => setProfileLatestVisit(e.target.value)} placeholder="Latest doctor visit notes" rows={2} className="placeholder:text-[#D4B8B8]" style={{ ...profilePanelGlassInputStyle, height: 60, minHeight: 60, resize: 'none' }} />
+          </div>
+
+          <button type="button" className={`${glassPillButton} mt-8`} onClick={continueToRiskFactors}>Continue to heart risk questions →</button>
+          {profileValidationMessage ? (
+            <p className="mt-4 max-w-md text-center text-[12px] font-normal leading-snug text-[#E8B6B6]" style={{ fontFamily: dmSans }} role="alert">
+              {profileValidationMessage}
+            </p>
+          ) : null}
+          <button type="button" className="mt-6 cursor-pointer border-none bg-transparent p-0 text-[0.6875rem] font-normal text-[#9B7B7B] underline-offset-2 hover:underline" style={{ fontFamily: dmSans }} onClick={() => setSubStep('riskFactors')}>
+            Skip for now
+          </button>
+        </motion.div>
       ) : (
         <motion.div key="risk-factors" className="flex w-full max-w-lg flex-col items-center pb-8" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.55, ease: easeSoftOut }}>
           <motion.h2 className="mb-8 text-center font-normal leading-snug text-[#FDF0F0]" style={{ fontFamily: dmSans, fontSize: 16 }} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.5, ease: easeSoftOut, delay: 0.06 }}>
@@ -145,10 +280,18 @@ export default function OnboardingFlow({
           </p>
 
           <div className="flex w-full flex-col gap-4">
-            <div className="px-4 py-3" style={glassFieldCardStyle}>
-              <label className="block text-sm font-normal text-[#FDF0F0]" style={{ fontFamily: dmSans }} htmlFor="rf-age">How old are you?</label>
-              <input id="rf-age" type="number" inputMode="numeric" min={0} className="tabular-nums" style={glassNumberInputStyle} value={riskFactors.age} onChange={(e) => setRiskFactors((d) => ({ ...d, age: e.target.value }))} />
-            </div>
+            {!profileAge.trim() ? (
+              <div className="px-4 py-3" style={glassFieldCardStyle}>
+                <label className="block text-sm font-normal text-[#FDF0F0]" style={{ fontFamily: dmSans }} htmlFor="rf-age">How old are you?</label>
+                <input id="rf-age" type="number" inputMode="numeric" min={0} className="tabular-nums" style={glassNumberInputStyle} value={riskFactors.age} onChange={(e) => setRiskFactors((d) => ({ ...d, age: e.target.value }))} />
+              </div>
+            ) : (
+              <div className="px-4 py-3" style={glassFieldCardStyle}>
+                <p className="text-sm font-normal text-[#FDF0F0]" style={{ fontFamily: dmSans }}>
+                  Age from profile: {profileAge}
+                </p>
+              </div>
+            )}
 
             <div className="px-4 py-3" style={glassFieldCardStyle}>
               <label className="block text-sm font-normal text-[#FDF0F0]" style={{ fontFamily: dmSans }} htmlFor="rf-bmi">What is your pre-pregnancy BMI?</label>

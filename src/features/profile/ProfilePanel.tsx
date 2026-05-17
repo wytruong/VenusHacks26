@@ -90,7 +90,7 @@ export function ProfilePanel({
           <button
             type="button"
             className="mx-auto flex h-[56px] w-[56px] shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-[#F4C2C2] bg-white/[0.10] outline-none transition-opacity hover:opacity-95 focus-visible:ring-2 focus-visible:ring-[#F4C2C2]/60"
-            aria-label="Upload profile photo"
+            aria-label="Upload or edit profile photo"
             onClick={() => profileAvatarInputRef.current?.click()}
           >
             {profileAvatarUrl ? (
@@ -104,51 +104,89 @@ export function ProfilePanel({
               <ProfileCameraGlyph className="text-[#9B7B7B]" />
             )}
           </button>
+          <div
+            className="mt-2 text-center font-normal leading-snug text-[#D4B8B8]"
+            style={{ fontSize: 10 }}
+          >
+            Review onboarding details and edit any field.
+          </div>
 
+          <div
+            className="mb-1.5 mt-4 font-normal uppercase tracking-[0.14em] text-[#F4C2C2]"
+            style={{ fontSize: 10 }}
+          >
+            Name
+          </div>
           <input
             type="text"
             value={profileDisplayName}
             onChange={(e) => setProfileDisplayName(e.target.value)}
-            placeholder="Your name"
-            className="mt-4 placeholder:text-[#D4B8B8]"
+            placeholder="Not provided"
+            aria-label="Name"
+            className="placeholder:text-[#D4B8B8]"
             style={profilePanelGlassInputStyle}
           />
 
+          <div
+            className="mb-1.5 mt-3 font-normal uppercase tracking-[0.14em] text-[#F4C2C2]"
+            style={{ fontSize: 10 }}
+          >
+            Age
+          </div>
           <input
             type="number"
             inputMode="numeric"
             min={0}
             value={profileAge}
             onChange={(e) => setProfileAge(e.target.value)}
-            placeholder="Age"
-            className="mt-2 placeholder:text-[#D4B8B8] tabular-nums"
+            placeholder="Not provided"
+            aria-label="Age"
+            className="placeholder:text-[#D4B8B8] tabular-nums"
             style={profilePanelGlassInputStyle}
           />
 
           {pregnancyMode === 'prenatal' ? (
-            <input
-              type="number"
-              inputMode="numeric"
-              min={0}
-              value={profileWeeksPregnant}
-              onChange={(e) => setProfileWeeksPregnant(e.target.value)}
-              placeholder="e.g. 28 weeks"
-              className="mt-2 placeholder:text-[#D4B8B8] tabular-nums"
-              style={profilePanelGlassInputStyle}
-            />
+            <>
+              <div
+                className="mb-1.5 mt-3 font-normal uppercase tracking-[0.14em] text-[#F4C2C2]"
+                style={{ fontSize: 10 }}
+              >
+                Weeks pregnant
+              </div>
+              <input
+                type="number"
+                inputMode="numeric"
+                min={0}
+                value={profileWeeksPregnant}
+                onChange={(e) => setProfileWeeksPregnant(e.target.value)}
+                placeholder="Not provided"
+                aria-label="Weeks pregnant"
+                className="placeholder:text-[#D4B8B8] tabular-nums"
+                style={profilePanelGlassInputStyle}
+              />
+            </>
           ) : null}
 
           {pregnancyMode === 'postpartum' ? (
-            <input
-              type="number"
-              inputMode="numeric"
-              min={0}
-              value={profileWeeksPostpartum}
-              onChange={(e) => setProfileWeeksPostpartum(e.target.value)}
-              placeholder="e.g. 6 weeks"
-              className="mt-2 placeholder:text-[#D4B8B8] tabular-nums"
-              style={profilePanelGlassInputStyle}
-            />
+            <>
+              <div
+                className="mb-1.5 mt-3 font-normal uppercase tracking-[0.14em] text-[#F4C2C2]"
+                style={{ fontSize: 10 }}
+              >
+                Weeks postpartum
+              </div>
+              <input
+                type="number"
+                inputMode="numeric"
+                min={0}
+                value={profileWeeksPostpartum}
+                onChange={(e) => setProfileWeeksPostpartum(e.target.value)}
+                placeholder="Not provided"
+                aria-label="Weeks postpartum"
+                className="placeholder:text-[#D4B8B8] tabular-nums"
+                style={profilePanelGlassInputStyle}
+              />
+            </>
           ) : null}
 
           <div
@@ -160,7 +198,8 @@ export function ProfilePanel({
           <textarea
             value={profileMedications}
             onChange={(e) => setProfileMedications(e.target.value)}
-            placeholder="List any medications you're taking"
+            placeholder="Not provided — add if needed"
+            aria-label="Current medications"
             rows={2}
             className="placeholder:text-[#D4B8B8]"
             style={{
@@ -180,7 +219,8 @@ export function ProfilePanel({
           <textarea
             value={profileAllergies}
             onChange={(e) => setProfileAllergies(e.target.value)}
-            placeholder="List any known allergies"
+            placeholder="Not provided — add if needed"
+            aria-label="Allergies"
             rows={2}
             className="placeholder:text-[#D4B8B8]"
             style={{
@@ -200,7 +240,8 @@ export function ProfilePanel({
           <textarea
             value={profileLatestVisit}
             onChange={(e) => setProfileLatestVisit(e.target.value)}
-            placeholder="Notes from your last appointment"
+            placeholder="Not provided — add notes if needed"
+            aria-label="Latest doctor visit"
             rows={2}
             className="placeholder:text-[#D4B8B8]"
             style={{

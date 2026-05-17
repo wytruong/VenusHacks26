@@ -71,9 +71,9 @@ function ReadingNoteEllipsis() {
   )
 }
 
-function toPrenatalRequest(riskFactors: RiskFactors): PrenatalCvdRequest | null {
+function toPrenatalRequest(riskFactors: RiskFactors, profileAge: string): PrenatalCvdRequest | null {
+  const resolvedAge = profileAge.trim() || riskFactors.age
   const {
-    age,
     prepregnancyBmi,
     liveBirthsCount,
     chronicHypertension,
@@ -85,7 +85,7 @@ function toPrenatalRequest(riskFactors: RiskFactors): PrenatalCvdRequest | null 
 
   if (
     riskFactors.pregnancyMode !== 'prenatal' ||
-    !age.trim() ||
+    !resolvedAge.trim() ||
     !prepregnancyBmi.trim() ||
     !liveBirthsCount.trim() ||
     chronicHypertension === null ||
@@ -99,7 +99,7 @@ function toPrenatalRequest(riskFactors: RiskFactors): PrenatalCvdRequest | null 
 
   return {
     pregnancyMode: 'prenatal',
-    age,
+    age: resolvedAge,
     prepregnancyBmi,
     chronicHypertension,
     diabetes,
@@ -110,10 +110,12 @@ function toPrenatalRequest(riskFactors: RiskFactors): PrenatalCvdRequest | null 
   }
 }
 
-function getPrenatalValidationMessage(riskFactors: RiskFactors): string | null {
+function getPrenatalValidationMessage(riskFactors: RiskFactors, profileAge: string): string | null {
   if (riskFactors.pregnancyMode !== 'prenatal') return null
 
-  if (!riskFactors.age.trim() || Number.isNaN(Number(riskFactors.age))) {
+  const resolvedAge = profileAge.trim() || riskFactors.age
+
+  if (!resolvedAge.trim() || Number.isNaN(Number(resolvedAge))) {
     return 'Please enter a valid age before continuing.'
   }
   if (
@@ -161,7 +163,7 @@ export default function App() {
 
   const [landingIntroComplete, setLandingIntroComplete] = useState(isDirectFlowEntry)
   const [onboardingSubStep, setOnboardingSubStep] = useState<
-    'question' | 'pregnancyStage' | 'riskFactors'
+    'question' | 'pregnancyStage' | 'profileDetails' | 'riskFactors'
   >('question')
   const [pregnancyMode, setPregnancyMode] = useState<
     'prenatal' | 'postpartum' | null
@@ -356,13 +358,13 @@ export default function App() {
       return
     }
 
-    const validationMessage = getPrenatalValidationMessage(riskFactors)
+    const validationMessage = getPrenatalValidationMessage(riskFactors, profileAge)
     if (validationMessage) {
       setPregnancyRiskSubmitMessage(validationMessage)
       return
     }
 
-    const payload = toPrenatalRequest(riskFactors)
+    const payload = toPrenatalRequest(riskFactors, profileAge)
     if (!payload) {
       setPregnancyRiskSubmitMessage(
         'Some answers are missing or invalid. Please review your profile and try again.',
@@ -726,6 +728,23 @@ export default function App() {
             createEmptyRiskFactors={createEmptyRiskFactors}
             onSubmitRisk={handlePregnancyRiskSubmit}
             riskSubmitMessage={pregnancyRiskSubmitMessage}
+            profileAvatarInputRef={profileAvatarInputRef}
+            profileAvatarUrl={profileAvatarUrl}
+            onProfileAvatarChange={onProfileAvatarChange}
+            profileDisplayName={profileDisplayName}
+            setProfileDisplayName={setProfileDisplayName}
+            profileAge={profileAge}
+            setProfileAge={setProfileAge}
+            profileWeeksPregnant={profileWeeksPregnant}
+            setProfileWeeksPregnant={setProfileWeeksPregnant}
+            profileWeeksPostpartum={profileWeeksPostpartum}
+            setProfileWeeksPostpartum={setProfileWeeksPostpartum}
+            profileMedications={profileMedications}
+            setProfileMedications={setProfileMedications}
+            profileAllergies={profileAllergies}
+            setProfileAllergies={setProfileAllergies}
+            profileLatestVisit={profileLatestVisit}
+            setProfileLatestVisit={setProfileLatestVisit}
           />
         }
         riskProfile={
@@ -744,6 +763,23 @@ export default function App() {
             createEmptyRiskFactors={createEmptyRiskFactors}
             onSubmitRisk={handlePregnancyRiskSubmit}
             riskSubmitMessage={pregnancyRiskSubmitMessage}
+            profileAvatarInputRef={profileAvatarInputRef}
+            profileAvatarUrl={profileAvatarUrl}
+            onProfileAvatarChange={onProfileAvatarChange}
+            profileDisplayName={profileDisplayName}
+            setProfileDisplayName={setProfileDisplayName}
+            profileAge={profileAge}
+            setProfileAge={setProfileAge}
+            profileWeeksPregnant={profileWeeksPregnant}
+            setProfileWeeksPregnant={setProfileWeeksPregnant}
+            profileWeeksPostpartum={profileWeeksPostpartum}
+            setProfileWeeksPostpartum={setProfileWeeksPostpartum}
+            profileMedications={profileMedications}
+            setProfileMedications={setProfileMedications}
+            profileAllergies={profileAllergies}
+            setProfileAllergies={setProfileAllergies}
+            profileLatestVisit={profileLatestVisit}
+            setProfileLatestVisit={setProfileLatestVisit}
           />
         }
         heart={
