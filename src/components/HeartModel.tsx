@@ -1,11 +1,10 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  AdditiveBlending,
-  BackSide,
   BoxGeometry,
   Group,
   Mesh,
   MeshBasicMaterial,
+  MeshStandardMaterial,
   Vector3,
 } from 'three'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
@@ -19,52 +18,64 @@ export type MeshSelectPayload = {
   doctorQuestions: readonly [string, string]
 }
 
-/** Shared prompts for the info panel (not part of the anatomy mapping table). */
-const DEFAULT_DOCTOR_QUESTIONS: readonly [string, string] = [
-  'How does this area relate to my symptoms or risk factors?',
-  'What follow-up would you recommend based on today\'s discussion?',
-]
-
 const HEART_MUSCLE_PAYLOAD: MeshSelectPayload = {
   label: 'Heart Muscle',
   description:
-    'The main muscular wall of your heart that pumps blood through your body.',
-  doctorQuestions: DEFAULT_DOCTOR_QUESTIONS,
+    'The myocardium is the muscular wall of your heart. During pregnancy your heart pumps 50% more blood than usual, putting extra demand on this muscle.',
+  doctorQuestions: [
+    'Is my heart muscle showing any signs of strain from my pregnancy?',
+    'Should I have an echocardiogram to check my heart function?',
+  ],
 }
 
 const CORONARY_ARTERY_PAYLOAD: MeshSelectPayload = {
   label: 'Coronary Artery',
   description:
-    'These vessels deliver fresh oxygenated blood directly to your heart muscle.',
-  doctorQuestions: DEFAULT_DOCTOR_QUESTIONS,
+    'These vessels deliver oxygenated blood directly to your heart muscle. Reduced flow here can cause chest pain or shortness of breath, symptoms sometimes mistaken for normal pregnancy discomfort.',
+  doctorQuestions: [
+    'Could my chest tightness be related to my coronary arteries?',
+    'What symptoms should make me call you immediately?',
+  ],
 }
 
 const CARDIAC_VEIN_PAYLOAD: MeshSelectPayload = {
   label: 'Cardiac Vein',
   description:
-    'These vessels carry used blood away from your heart muscle.',
-  doctorQuestions: DEFAULT_DOCTOR_QUESTIONS,
+    'These vessels carry used blood away from your heart muscle. They work harder during pregnancy as your blood volume increases significantly.',
+  doctorQuestions: [
+    'Is my blood volume within a healthy range for my stage of pregnancy?',
+    'Are there signs of fluid retention I should watch for?',
+  ],
 }
 
 const AORTA_PAYLOAD: MeshSelectPayload = {
   label: 'Aorta',
   description:
-    'The main artery that carries oxygen-rich blood from your heart to the rest of your body.',
-  doctorQuestions: DEFAULT_DOCTOR_QUESTIONS,
+    'The main artery carrying oxygen-rich blood from your heart to your body and your baby. Blood pressure directly affects how hard your heart works to pump through this vessel.',
+  doctorQuestions: [
+    'How does my blood pressure affect blood flow to my baby?',
+    'What is a safe blood pressure range for my stage of pregnancy?',
+  ],
 }
 
 const PULMONARY_ARTERY_PAYLOAD: MeshSelectPayload = {
   label: 'Pulmonary Artery',
   description:
-    'This vessel carries blood from your heart to your lungs to pick up oxygen.',
-  doctorQuestions: DEFAULT_DOCTOR_QUESTIONS,
+    'This vessel carries blood from your heart to your lungs. Pregnant women have a higher risk of pulmonary complications including blood clots.',
+  doctorQuestions: [
+    'Am I at risk for a pulmonary embolism during my pregnancy?',
+    'What symptoms of a blood clot should I watch for?',
+  ],
 }
 
 const HEART_REGION_PAYLOAD: MeshSelectPayload = {
   label: 'Heart Region',
   description:
-    "This mesh isn't covered by the numbered Object map—your clinician can tie it to imaging.",
-  doctorQuestions: DEFAULT_DOCTOR_QUESTIONS,
+    'Every part of your heart works harder during pregnancy. Your cardiac output increases by up to 50% to support your growing baby.',
+  doctorQuestions: [
+    'Is my overall heart function being monitored during my pregnancy?',
+    'What cardiac symptoms should prompt an urgent call to you?',
+  ],
 }
 
 type HeartCalloutDef = {
@@ -191,37 +202,71 @@ function HeartCallouts({
   ))
 }
 
-function SelectedMeshGlow({
-  mesh,
-}: {
-  mesh: Mesh | null
-}) {
-  useEffect(() => {
-    if (!mesh) return
+const HIGHLIGHT_EMISSIVE = 0xe88080
 
-    const material = new MeshBasicMaterial({
-      blending: AdditiveBlending,
-      color: '#ff4f75',
-      depthWrite: false,
-      opacity: 0.42,
-      side: BackSide,
-      transparent: true,
-    })
-    const glow = new Mesh(mesh.geometry, material)
-    glow.name = `${mesh.name}_selected_glow`
-    glow.userData.heartSelectedGlow = true
-    glow.renderOrder = 2
-    glow.scale.setScalar(1.022)
-    glow.raycast = () => null
-    mesh.add(glow)
+function disposeMaterialClone(material: Mesh['material']) {
+  const list = Array.isArray(material) ? material : [material]
+  for (const m of list) {
+    m.dispose()
+  }
+}
+
+function applySoftEmissiveToMaterial(material: Mesh['material']) {
+  const list = Array.isArray(material) ? material : [material]
+  for (const m of list) {
+    if (
+      'emissive' in m &&
+      m.emissive &&
+      'emissiveIntensity' in m &&
+      typeof (m as MeshStandardMaterial).emissiveIntensity === 'number'
+    ) {
+      const emissiveMat = m as MeshStandardMaterial
+      emissiveMat.emissive.setHex(HIGHLIGHT_EMISSIVE)
+      emissiveMat.emissiveIntensity = 0.4
+    }
+  }
+}
+
+function useSelectedMeshEmissiveHighlight(selectedMesh: Mesh | null) {
+  const selectionMaterialsRef = useRef<{
+    mesh: Mesh
+    originalMaterial: Mesh['material']
+    highlightMaterial: Mesh['material']
+  } | null>(null)
+
+  useEffect(() => {
+    const prev = selectionMaterialsRef.current
+    if (prev) {
+      const { mesh, originalMaterial, highlightMaterial } = prev
+      mesh.material = originalMaterial
+      disposeMaterialClone(highlightMaterial)
+      selectionMaterialsRef.current = null
+    }
+
+    if (!selectedMesh) return
+
+    const orig = selectedMesh.material
+    const cloned = Array.isArray(orig)
+      ? orig.map((m) => m.clone())
+      : orig.clone()
+
+    applySoftEmissiveToMaterial(cloned)
+    selectedMesh.material = cloned
+    selectionMaterialsRef.current = {
+      mesh: selectedMesh,
+      originalMaterial: orig,
+      highlightMaterial: cloned,
+    }
 
     return () => {
-      glow.parent?.remove(glow)
-      material.dispose()
+      const cur = selectionMaterialsRef.current
+      if (!cur) return
+      const { mesh, originalMaterial, highlightMaterial } = cur
+      mesh.material = originalMaterial
+      disposeMaterialClone(highlightMaterial)
+      selectionMaterialsRef.current = null
     }
-  }, [mesh])
-
-  return null
+  }, [selectedMesh])
 }
 
 type HeartMeshProps = {
@@ -246,6 +291,7 @@ function HeartMesh({
     [gltf.scene],
   )
   useCursor(cursorHover)
+  useSelectedMeshEmissiveHighlight(selectedMesh)
 
   useEffect(() => {
     const scene = gltf.scene
@@ -333,8 +379,12 @@ function HeartMesh({
               ? proxyToMeshRef.current.get(e.object) ?? null
               : null
           if (!mesh) return
+          const payload = meshSelectPayloadFromName(mesh.name)
+          console.log(
+            `CLICKED: ${mesh.name} → resolved to: ${payload.label}`,
+          )
           onSelectMesh(mesh)
-          onSelect(meshSelectPayloadFromName(mesh.name))
+          onSelect(payload)
           e.stopPropagation()
         }}
       >
@@ -342,7 +392,6 @@ function HeartMesh({
           <primitive object={gltf.scene} />
           <HeartCallouts anchors={calloutAnchors} />
         </group>
-        <SelectedMeshGlow mesh={selectedMesh} />
       </group>
     </Center>
   )

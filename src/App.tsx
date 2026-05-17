@@ -5,6 +5,7 @@ import {
   useState,
   type ChangeEvent,
   type CSSProperties,
+  type FormEvent,
 } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import HeartModel, { type MeshSelectPayload } from './components/HeartModel'
@@ -15,6 +16,7 @@ const HEART_FADE_DURATION_S = 1
 const CTA_DELAY_AFTER_HEART_S = 1
 const ONBOARDING_EXIT_DURATION_S = 0.5
 const DOCTOR_NOTE_READING_MS = 2500
+const ECG_READING_MS = 2000
 const PREGNANCY_RISK_ANALYSIS_MS = 2000
 
 const easeCinematic = [0.33, 0.02, 0.25, 1] as const
@@ -197,6 +199,32 @@ const doctorNoteUploadZoneStyle: CSSProperties = {
   backgroundColor: 'rgba(255,255,255,0.05)',
 }
 
+const ecgUploadZoneStyle: CSSProperties = {
+  width: '100%',
+  maxWidth: 400,
+  height: 200,
+  borderRadius: 16,
+  border: '1px dashed #F4C2C2',
+  backdropFilter: 'blur(12px)',
+  WebkitBackdropFilter: 'blur(12px)',
+  backgroundColor: 'rgba(255,255,255,0.05)',
+}
+
+function EcgHeartGlyph({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      width={20}
+      height={18}
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden
+    >
+      <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+    </svg>
+  )
+}
+
 function generateParticles(w: number, h: number): Particle[] {
   const colors = ['#ffffff', '#ffffff', '#FCE7EB', '#FFD6DC', '#FFB3B3']
   return Array.from({ length: 200 }, (_, i) => ({
@@ -274,11 +302,15 @@ export default function App() {
     createEmptyRiskFactors('prenatal'),
   )
   const [showDoctorNoteUpload, setShowDoctorNoteUpload] = useState(false)
+  const [showEcgUpload, setShowEcgUpload] = useState(false)
+  const [ecgFile, setEcgFile] = useState<File | null>(null)
   const [doctorNotePreviewUrl, setDoctorNotePreviewUrl] = useState<
     string | null
   >(null)
   const doctorNoteFileInputRef = useRef<HTMLInputElement>(null)
+  const ecgFileInputRef = useRef<HTMLInputElement>(null)
   const readDoctorNoteTimerRef = useRef(0)
+  const ecgReadTimerRef = useRef(0)
   const riskAnalysisTimerRef = useRef(0)
 
   const [pregnancyRiskAnalyzing, setPregnancyRiskAnalyzing] =
@@ -289,6 +321,10 @@ export default function App() {
   const [doctorNoteOcrLoading, setDoctorNoteOcrLoading] = useState(false)
   const [doctorNoteOcrResult, setDoctorNoteOcrResult] =
     useState<DoctorNoteOcrResult | null>(null)
+  const [doctorNoteFollowUpDraft, setDoctorNoteFollowUpDraft] = useState('')
+  const [doctorNoteFollowUpShowPlaceholder, setDoctorNoteFollowUpShowPlaceholder] =
+    useState(false)
+  const [ecgReadingLoading, setEcgReadingLoading] = useState(false)
 
   const revokeDoctorNotePreview = useCallback(() => {
     setDoctorNotePreviewUrl((prev) => {
@@ -310,6 +346,9 @@ export default function App() {
       if (readDoctorNoteTimerRef.current) {
         window.clearTimeout(readDoctorNoteTimerRef.current)
       }
+      if (ecgReadTimerRef.current) {
+        window.clearTimeout(ecgReadTimerRef.current)
+      }
       if (riskAnalysisTimerRef.current) {
         window.clearTimeout(riskAnalysisTimerRef.current)
       }
@@ -325,6 +364,36 @@ export default function App() {
     })
   }
 
+  const onEcgFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    setEcgFile(e.target.files?.[0] ?? null)
+  }
+
+  const clearEcgSelection = () => {
+    setEcgFile(null)
+    const input = ecgFileInputRef.current
+    if (input) input.value = ''
+  }
+
+  const skipEcgToHeart = () => {
+    setShowEcgUpload(false)
+    clearEcgSelection()
+  }
+
+  const handleAnalyzeEcg = () => {
+    if (!ecgFile) return
+    setShowEcgUpload(false)
+    setEcgReadingLoading(true)
+    setHeartInteractive(false)
+    if (ecgReadTimerRef.current) {
+      window.clearTimeout(ecgReadTimerRef.current)
+    }
+    ecgReadTimerRef.current = window.setTimeout(() => {
+      ecgReadTimerRef.current = 0
+      setEcgReadingLoading(false)
+      clearEcgSelection()
+    }, ECG_READING_MS)
+  }
+
   const skipDoctorNoteToHeart = () => {
     setShowDoctorNoteUpload(false)
     revokeDoctorNotePreview()
@@ -333,6 +402,8 @@ export default function App() {
   const handleReadDoctorNote = () => {
     setMeshInfo(null)
     setShowDoctorNoteUpload(false)
+    setDoctorNoteFollowUpDraft('')
+    setDoctorNoteFollowUpShowPlaceholder(false)
     setDoctorNoteOcrLoading(true)
     setDoctorNoteOcrResult(null)
     setHeartInteractive(false)
@@ -344,6 +415,13 @@ export default function App() {
       setDoctorNoteOcrLoading(false)
       setDoctorNoteOcrResult(MOCK_DOCTOR_NOTE_OCR)
     }, DOCTOR_NOTE_READING_MS)
+  }
+
+  const submitDoctorNoteFollowUp = (e?: FormEvent<HTMLFormElement>) => {
+    e?.preventDefault()
+    if (!doctorNoteOcrResult || !doctorNoteFollowUpDraft.trim()) return
+    setDoctorNoteFollowUpShowPlaceholder(true)
+    setDoctorNoteFollowUpDraft('')
   }
 
   const handlePregnancyRiskSubmit = () => {
@@ -401,13 +479,19 @@ export default function App() {
   }, [heartReveal])
 
   useEffect(() => {
-    if (!heartReveal || doctorNoteOcrLoading || pregnancyRiskAnalyzing) return
+    if (
+      !heartReveal ||
+      doctorNoteOcrLoading ||
+      ecgReadingLoading ||
+      pregnancyRiskAnalyzing
+    )
+      return
     const t = window.setTimeout(
       () => setHeartInteractive(true),
       HEART_FADE_DURATION_S * 1000,
     )
     return () => window.clearTimeout(t)
-  }, [heartReveal, doctorNoteOcrLoading, pregnancyRiskAnalyzing])
+  }, [heartReveal, doctorNoteOcrLoading, ecgReadingLoading, pregnancyRiskAnalyzing])
 
   const cx = dims.w / 2
   const cy = dims.h / 2
@@ -423,12 +507,21 @@ export default function App() {
     setOnboardingSubStep('question')
     setShowPregnancyOnboarding(true)
     setShowDoctorNoteUpload(false)
+    setShowEcgUpload(false)
+    clearEcgSelection()
     revokeDoctorNotePreview()
     setDoctorNoteOcrLoading(false)
     setDoctorNoteOcrResult(null)
+    setDoctorNoteFollowUpDraft('')
+    setDoctorNoteFollowUpShowPlaceholder(false)
+    setEcgReadingLoading(false)
     if (readDoctorNoteTimerRef.current) {
       window.clearTimeout(readDoctorNoteTimerRef.current)
       readDoctorNoteTimerRef.current = 0
+    }
+    if (ecgReadTimerRef.current) {
+      window.clearTimeout(ecgReadTimerRef.current)
+      ecgReadTimerRef.current = 0
     }
     if (riskAnalysisTimerRef.current) {
       window.clearTimeout(riskAnalysisTimerRef.current)
@@ -444,7 +537,9 @@ export default function App() {
   const showLandingCta =
     showCta &&
     !showDoctorNoteUpload &&
+    !showEcgUpload &&
     !doctorNoteOcrLoading &&
+    !ecgReadingLoading &&
     doctorNoteOcrResult === null &&
     !pregnancyRiskAnalyzing &&
     pregnancyRiskResult === null
@@ -483,6 +578,7 @@ export default function App() {
           pointerEvents:
             heartInteractive &&
             !doctorNoteOcrLoading &&
+            !ecgReadingLoading &&
             !pregnancyRiskAnalyzing
               ? 'auto'
               : 'none',
@@ -492,15 +588,25 @@ export default function App() {
           className="h-full w-full"
           animate={{
             opacity:
-              doctorNoteOcrLoading || pregnancyRiskAnalyzing
+              doctorNoteOcrLoading ||
+              ecgReadingLoading ||
+              pregnancyRiskAnalyzing
                 ? [0.3, 0.36, 0.3]
                 : 1,
           }}
           transition={{
             duration:
-              doctorNoteOcrLoading || pregnancyRiskAnalyzing ? 2.8 : 0.5,
+              doctorNoteOcrLoading ||
+              ecgReadingLoading ||
+              pregnancyRiskAnalyzing
+                ? 2.8
+                : 0.5,
             repeat:
-              doctorNoteOcrLoading || pregnancyRiskAnalyzing ? Infinity : 0,
+              doctorNoteOcrLoading ||
+              ecgReadingLoading ||
+              pregnancyRiskAnalyzing
+                ? Infinity
+                : 0,
             ease: 'easeInOut',
           }}
         >
@@ -525,6 +631,39 @@ export default function App() {
               <span>Reading your note</span>
               <ReadingNoteEllipsis />
             </p>
+          </motion.div>
+        ) : ecgReadingLoading ? (
+          <motion.div
+            key="reading-ecg"
+            className="pointer-events-none fixed inset-x-0 bottom-[20%] z-[44] flex justify-center px-6 md:bottom-[24%]"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.4, ease: easeSoftOut }}
+          >
+            <div
+              className="flex flex-col items-center gap-3"
+              style={{ fontFamily: dmSans }}
+            >
+              <motion.div
+                animate={{ scale: [1, 1.14, 1] }}
+                transition={{
+                  duration: 1.15,
+                  repeat: Infinity,
+                  ease: 'easeInOut',
+                }}
+                className="text-[#E88080]"
+                aria-hidden
+              >
+                <EcgHeartGlyph className="text-current" />
+              </motion.div>
+              <p
+                className="text-center font-normal tracking-[0.02em] text-[#9B7B7B]"
+                style={{ fontSize: 12 }}
+              >
+                Reading your ECG...
+              </p>
+            </div>
           </motion.div>
         ) : pregnancyRiskAnalyzing ? (
           <motion.div
@@ -959,6 +1098,101 @@ export default function App() {
       </AnimatePresence>
 
       <AnimatePresence>
+        {showEcgUpload ? (
+          <motion.div
+            key="ecg-upload"
+            className="fixed inset-0 z-[42] flex flex-col items-center justify-center overflow-y-auto px-6 py-16"
+            style={{ backgroundColor: '#1A0A0A' }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.45, ease: easeSoftOut }}
+          >
+            <motion.h2
+              className="mb-3 max-w-xl text-center font-normal leading-snug text-[#FDF0F0]"
+              style={{ fontFamily: dmSans, fontSize: 16 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.65, ease: easeSoftOut, delay: 0.06 }}
+            >
+              Upload your ECG file.
+            </motion.h2>
+
+            <p
+              className="mb-8 max-w-md text-center font-normal leading-snug text-[#9B7B7B]"
+              style={{ fontFamily: dmSans, fontSize: 12 }}
+            >
+              Export your ECG from Apple Health and upload it here.
+            </p>
+
+            <input
+              ref={ecgFileInputRef}
+              type="file"
+              accept=".pdf,.csv,application/pdf,text/csv"
+              className="sr-only"
+              aria-hidden
+              tabIndex={-1}
+              onChange={onEcgFileChange}
+            />
+
+            <div
+              role="button"
+              tabIndex={0}
+              aria-label="Choose ECG file"
+              className="flex max-w-full cursor-pointer flex-col items-center justify-center px-4 outline-none transition-opacity duration-300 focus-visible:ring-2 focus-visible:ring-[#F4C2C2]/60"
+              style={ecgUploadZoneStyle}
+              onClick={() => ecgFileInputRef.current?.click()}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  ecgFileInputRef.current?.click()
+                }
+              }}
+            >
+              {ecgFile ? (
+                <p
+                  className="max-w-[340px] truncate text-center font-normal text-[#9B7B7B]"
+                  style={{ fontFamily: dmSans, fontSize: 12 }}
+                  title={ecgFile.name}
+                >
+                  {ecgFile.name}
+                </p>
+              ) : (
+                <>
+                  <EcgHeartGlyph className="mb-2 shrink-0 text-[#9B7B7B]" />
+                  <p
+                    className="max-w-[280px] text-center font-normal leading-snug text-[#9B7B7B]"
+                    style={{ fontFamily: dmSans, fontSize: 12 }}
+                  >
+                    Tap to upload your ECG file
+                  </p>
+                </>
+              )}
+            </div>
+
+            <button
+              type="button"
+              disabled={!ecgFile}
+              className={`${glassPillButton} mt-8 ${!ecgFile ? 'pointer-events-none cursor-not-allowed opacity-35' : 'cursor-pointer opacity-100'}`}
+              style={{ fontFamily: dmSans }}
+              onClick={handleAnalyzeEcg}
+            >
+              Analyze my ECG →
+            </button>
+
+            <button
+              type="button"
+              className="mt-6 cursor-pointer border-none bg-transparent p-0 text-[12px] font-normal text-[#9B7B7B] underline-offset-4 hover:underline"
+              style={{ fontFamily: dmSans }}
+              onClick={skipEcgToHeart}
+            >
+              Skip for now
+            </button>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+
+      <AnimatePresence>
         {showDoctorNoteUpload ? (
           <motion.div
             key="doctor-note-upload"
@@ -1151,6 +1385,87 @@ export default function App() {
                   </li>
                 ))}
               </ul>
+
+              <div className="mt-4 border-t border-white/10 pt-4">
+                <div
+                  className="mb-2 font-normal text-[#9B7B7B]"
+                  style={{ fontFamily: dmSans, fontSize: 11 }}
+                >
+                  Ask a follow-up question
+                </div>
+
+                <AnimatePresence>
+                  {doctorNoteFollowUpShowPlaceholder ? (
+                    <motion.div
+                      key="doctor-note-followup-placeholder"
+                      className="mb-3"
+                      initial={{ opacity: 0, y: 4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 4 }}
+                      transition={{ duration: 0.35, ease: easeSoftOut }}
+                      style={{
+                        padding: '10px 12px',
+                        borderRadius: 12,
+                        backdropFilter: 'blur(12px)',
+                        WebkitBackdropFilter: 'blur(12px)',
+                        backgroundColor: 'rgba(255,255,255,0.08)',
+                        border: '1px solid rgba(255,255,255,0.2)',
+                      }}
+                    >
+                      <p
+                        className="m-0 font-normal leading-snug text-[#9B7B7B]"
+                        style={{ fontFamily: dmSans, fontSize: 11 }}
+                      >
+                        This feature is coming soon. For now, please consult
+                        your doctor or OB for personalized guidance.
+                      </p>
+                    </motion.div>
+                  ) : null}
+                </AnimatePresence>
+
+                <form
+                  className="flex w-full min-w-0 items-stretch gap-2"
+                  onSubmit={submitDoctorNoteFollowUp}
+                >
+                  <input
+                    type="text"
+                    value={doctorNoteFollowUpDraft}
+                    onChange={(e) =>
+                      setDoctorNoteFollowUpDraft(e.target.value)
+                    }
+                    placeholder="e.g. What does this mean for my baby?"
+                    autoComplete="off"
+                    className="min-w-0 flex-1 border-none outline-none placeholder:text-[#9B7B7B]/55"
+                    style={{
+                      padding: '8px 14px',
+                      borderRadius: 20,
+                      backdropFilter: 'blur(12px)',
+                      WebkitBackdropFilter: 'blur(12px)',
+                      backgroundColor: 'rgba(255,255,255,0.08)',
+                      border: '1px solid #F4C2C2',
+                      color: '#FDF0F0',
+                      fontFamily: dmSans,
+                      fontSize: 12,
+                    }}
+                  />
+                  <button
+                    type="submit"
+                    className="flex shrink-0 cursor-pointer items-center justify-center rounded-full border border-white/20 bg-white/[0.08] px-3.5 py-2 shadow-[0_4px_24px_rgba(255,255,255,0.06)] backdrop-blur-[12px] transition-[background-color] duration-300 hover:bg-white/[0.12]"
+                    aria-label="Send follow-up question"
+                  >
+                    <span
+                      className="leading-none"
+                      style={{
+                        color: '#F4C2C2',
+                        fontSize: 15,
+                        fontFamily: dmSans,
+                      }}
+                    >
+                      →
+                    </span>
+                  </button>
+                </form>
+              </div>
             </div>
           </motion.div>
         ) : pregnancyRiskResult ? (
@@ -1392,7 +1707,11 @@ export default function App() {
             </p>
           </div>
           <div className="pointer-events-auto flex flex-row flex-wrap items-center justify-center gap-4">
-            <button type="button" className={glassPillButton}>
+            <button
+              type="button"
+              className={glassPillButton}
+              onClick={() => setShowEcgUpload(true)}
+            >
               I have an Apple Watch
             </button>
             <button
