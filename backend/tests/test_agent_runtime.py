@@ -5,6 +5,7 @@ from langchain_core.messages import AIMessage
 
 from backend.services.agents.config import AgentConfigurationError, AgentRuntimeSettings
 from backend.services.agents.providers import (
+    LOCAL_OPENAI_COMPATIBLE_BASE_URL,
     OPENAI_BASE_URL,
     OPENROUTER_BASE_URL,
     create_agent_model,
@@ -32,6 +33,14 @@ def make_settings(**overrides: Any) -> AgentRuntimeSettings:
     return AgentRuntimeSettings(**defaults)
 
 
+def test_default_settings_use_openrouter_provider_without_env_file() -> None:
+    settings = AgentRuntimeSettings(_env_file=None)
+
+    assert settings.agent_model_provider == "openrouter"
+    assert settings.openrouter_api_key is None
+
+
+
 def test_openrouter_provider_config_resolves_base_url() -> None:
     config = resolve_agent_provider_config(make_settings())
 
@@ -56,19 +65,31 @@ def test_openai_provider_config_resolves_base_url() -> None:
     assert config.base_url == OPENAI_BASE_URL
 
 
-def test_openai_compatible_provider_config_requires_https_base_url() -> None:
+def test_openai_compatible_provider_config_accepts_local_base_url() -> None:
     config = resolve_agent_provider_config(
         make_settings(
             agent_model_provider="openai_compatible",
             agent_openai_compatible_api_key="compatible-key",
-            agent_openai_compatible_base_url="https://llm.example.test/v1",
+            agent_openai_compatible_base_url="http://localhost:8317",
             openrouter_api_key=None,
         )
     )
 
     assert config.provider == "openai_compatible"
     assert config.api_key == "compatible-key"
-    assert config.base_url == "https://llm.example.test/v1"
+    assert config.base_url == LOCAL_OPENAI_COMPATIBLE_BASE_URL
+
+
+def test_openai_compatible_provider_config_rejects_nonlocal_http_base_url() -> None:
+    with pytest.raises(AgentConfigurationError, match="https or local http"):
+        resolve_agent_provider_config(
+            make_settings(
+                agent_model_provider="openai_compatible",
+                agent_openai_compatible_api_key="compatible-key",
+                agent_openai_compatible_base_url="http://llm.example.test/v1",
+                openrouter_api_key=None,
+            )
+        )
 
 
 def test_missing_provider_secret_raises_safe_configuration_error() -> None:

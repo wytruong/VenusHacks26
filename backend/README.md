@@ -9,7 +9,7 @@ Current backend capabilities include:
 - Shipped CDC natality model artifacts under `models/cdc-natality/default/`.
 - ECG/data normalization scripts and references under `scripts/` and `docs/`.
 - Backend API and agent runtime tests under `tests/`.
-- Service-layer LangChain/deepagents runtime under `backend/services/agents/` for future companion routes.
+- Service-layer LangChain/deepagents runtime under `backend/services/agents/` for companion chat routes.
 
 ## Required Environment
 
@@ -49,6 +49,7 @@ scripts/
   health/                         Dataset health report scripts
   normalization/                  Data normalization adapters
 tests/
+  test_agent_chat_api.py          Agent chat API route tests
   test_agent_runtime.py           Deterministic agent runtime/provider/tool tests
   test_prenatal_cvd_api.py        Prenatal-cvd API route and validation tests
   test_maternal_screening_api.py  Prenatal-expanded and postnatal-followup API tests
@@ -77,6 +78,7 @@ Live backend routes:
 
 ```text
 GET  /health
+POST /api/agents/chat
 POST /api/screening/prenatal-cvd
 POST /api/screening/prenatal-expanded
 POST /api/screening/postnatal-followup
@@ -88,17 +90,17 @@ See `API_REFERENCES.md` for request and response examples.
 
 ## Agent Runtime
 
-`backend/services/agents/` contains a route-free LangChain/deepagents runtime for future maternal companion flows. It supports provider selection through environment variables:
+`backend/services/agents/` contains the LangChain/deepagents runtime used by `POST /api/agents/chat` for maternal companion flows. It supports provider selection through environment variables:
 
-- `AGENT_MODEL_PROVIDER`: `openrouter`, `openai`, or `openai_compatible`
-- `AGENT_MODEL`
+- `AGENT_MODEL_PROVIDER`: `openrouter`, `openai`, or `openai_compatible` (default: `openrouter`)
+- `AGENT_MODEL` (set locally to `deepseek/deepseek-v4-flash`; passed directly to the chat model because the runtime does not autodiscover models from `/v1/models`)
 - `AGENT_TIMEOUT_MS`
 - `OPENROUTER_API_KEY`
 - `OPENAI_API_KEY`
 - `AGENT_OPENAI_COMPATIBLE_API_KEY`
-- `AGENT_OPENAI_COMPATIBLE_BASE_URL`
+- `AGENT_OPENAI_COMPATIBLE_BASE_URL` (`http://localhost:8317` is normalized to `http://localhost:8317/v1` for OpenAI-compatible local requests)
 
-The runtime keeps tools and subagents explicitly allowlisted. It does not expose a public API route yet, and deterministic tests must not call live LLM providers by default.
+The runtime keeps tools and subagents explicitly allowlisted. The chat API returns safe generic `503` errors when provider configuration or runtime invocation fails. Deterministic tests must not call live LLM providers by default.
 
 ## Prenatal CVD Screening Model
 
@@ -164,10 +166,11 @@ From the backend directory with the required venv active:
 python -m pytest
 ```
 
-Focused agent runtime tests:
+Focused agent tests:
 
 ```bash
 python -m pytest tests/test_agent_runtime.py
+python -m pytest tests/test_agent_chat_api.py
 ```
 
 Focused API tests:

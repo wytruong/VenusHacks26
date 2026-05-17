@@ -7,12 +7,14 @@ import type { DoctorNoteOcrResult } from './doctorNote.types'
 type DoctorNoteInsightPanelProps = {
   result: DoctorNoteOcrResult | null
   draft: string
-  showPlaceholder: boolean
+  response: string | null
+  error: string | null
+  isLoading: boolean
   setDraft: (v: string) => void
   onSubmitFollowUp: (e?: FormEvent<HTMLFormElement>) => void
 }
 
-export default function DoctorNoteInsightPanel({ result, draft, showPlaceholder, setDraft, onSubmitFollowUp }: DoctorNoteInsightPanelProps) {
+export default function DoctorNoteInsightPanel({ result, draft, response, error, isLoading, setDraft, onSubmitFollowUp }: DoctorNoteInsightPanelProps) {
   if (!result) return null
 
   return (
@@ -63,10 +65,10 @@ export default function DoctorNoteInsightPanel({ result, draft, showPlaceholder,
           </div>
 
           <AnimatePresence>
-            {showPlaceholder ? (
-              <motion.div key="doctor-note-followup-placeholder" className="mb-3" initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 4 }} transition={{ duration: 0.35, ease: easeSoftOut }} style={{ padding: '10px 12px', borderRadius: 12, backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', backgroundColor: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.2)' }}>
-                <p className="m-0 font-normal leading-snug text-[#9B7B7B]" style={{ fontFamily: dmSans, fontSize: 11 }}>
-                  This feature is coming soon. For now, please consult your doctor or OB for personalized guidance.
+            {isLoading || response || error ? (
+              <motion.div key="doctor-note-followup-response" className="mb-3" initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 4 }} transition={{ duration: 0.35, ease: easeSoftOut }} style={{ padding: '10px 12px', borderRadius: 12, backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', backgroundColor: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.2)' }}>
+                <p className="m-0 font-normal leading-snug text-[#D4B8B8]" style={{ fontFamily: dmSans, fontSize: 11 }}>
+                  {isLoading ? 'Thinking…' : error || response}
                 </p>
               </motion.div>
             ) : null}
@@ -79,10 +81,11 @@ export default function DoctorNoteInsightPanel({ result, draft, showPlaceholder,
               onChange={(e) => setDraft(e.target.value)}
               placeholder="e.g. What does this mean for my baby?"
               autoComplete="off"
+              disabled={isLoading}
               className="min-w-0 flex-1 border-none outline-none placeholder:text-[#9B7B7B]/55"
               style={{ padding: '8px 14px', borderRadius: 20, backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', backgroundColor: 'rgba(255,255,255,0.08)', border: '1px solid #F4C2C2', color: '#FDF0F0', fontFamily: dmSans, fontSize: 12 }}
             />
-            <button type="submit" className="flex shrink-0 cursor-pointer items-center justify-center rounded-full border border-white/20 bg-white/[0.08] px-3.5 py-2 shadow-[0_4px_24px_rgba(255,255,255,0.06)] backdrop-blur-[12px] transition-[background-color] duration-300 hover:bg-white/[0.12]" aria-label="Send follow-up question">
+            <button type="submit" disabled={isLoading || !draft.trim()} className="flex shrink-0 cursor-pointer items-center justify-center rounded-full border border-white/20 bg-white/[0.08] px-3.5 py-2 shadow-[0_4px_24px_rgba(255,255,255,0.06)] backdrop-blur-[12px] transition-[background-color] duration-300 hover:bg-white/[0.12] disabled:cursor-not-allowed disabled:opacity-45" aria-label="Send follow-up question">
               <span className="leading-none" style={{ color: '#F4C2C2', fontSize: 15, fontFamily: dmSans }}>→</span>
             </button>
           </form>

@@ -11,7 +11,7 @@ class AgentConfigurationError(RuntimeError):
 
 
 class AgentRuntimeSettings(BaseSettings):
-    model_config = SettingsConfigDict(extra="ignore", populate_by_name=True)
+    model_config = SettingsConfigDict(extra="ignore", populate_by_name=True, env_file=".env")
 
     agent_model_provider: AgentModelProvider = Field(
         default="openrouter", validation_alias="AGENT_MODEL_PROVIDER"

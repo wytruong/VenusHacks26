@@ -62,7 +62,11 @@ python --version
 
 - Current public backend API surface:
   - `GET /health`
+  - `POST /api/agents/chat`
   - `POST /api/screening/prenatal-cvd`
+  - `POST /api/screening/prenatal-expanded` (backend-only; not wired to frontend UI yet)
+  - `POST /api/screening/postnatal-followup` (backend-only; not wired to frontend UI yet)
+- `POST /api/agents/chat` invokes the service-owned agent runtime and must keep provider errors generic.
 - `POST /api/screening/prenatal-cvd` accepts frontend-shaped camelCase fields.
 - Preserve the frontend-compatible `prenatal_cvd_followup_proxy_probability` response alias unless the frontend contract and API docs change in the same update.
 - Preserve response safety language that the model is a risk-prioritization aid, not a diagnosis or direct cardiovascular disease probability.
@@ -130,6 +134,6 @@ python --version
 ## 14. Keep Agent Runtime Orchestration Service-Owned
 
 - `backend/backend/services/agents/` owns LangChain/deepagents runtime setup, provider selection, tools, subagents, thread IDs, and runtime profile metadata.
-- Provider switching must remain environment-driven and support only explicit providers: OpenRouter, OpenAI, and configured OpenAI-compatible HTTPS base URLs.
+- Provider switching must remain environment-driven and support only explicit providers: OpenRouter, OpenAI, and configured OpenAI-compatible HTTPS base URLs or local HTTP loopback base URLs.
 - Agent tools and subagents must be deterministic and allowlisted; do not add broad filesystem, shell, network, mutation, or live-provider behavior without a route contract and tests.
 - Do not duplicate prenatal model feature mapping or artifact loading in agent tools; call or summarize service-owned outputs instead.

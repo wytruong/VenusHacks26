@@ -113,7 +113,7 @@ def test_cors_preflight_allows_local_vite_origin() -> None:
         headers={
             "Origin": "http://localhost:45260",
             "Access-Control-Request-Method": "POST",
-            "Access-Control-Request-Headers": "Content-Type",
+            "Access-Control-Request-Headers": "Content-Type, X-Request-ID",
         },
     )
 
@@ -121,6 +121,7 @@ def test_cors_preflight_allows_local_vite_origin() -> None:
     assert response.headers["access-control-allow-origin"] == "http://localhost:45260"
     assert "POST" in response.headers["access-control-allow-methods"]
     assert "Content-Type" in response.headers["access-control-allow-headers"]
+    assert "X-Request-ID" in response.headers["access-control-allow-headers"]
 
 
 def test_cors_preflight_rejects_unapproved_origin() -> None:
@@ -129,7 +130,7 @@ def test_cors_preflight_rejects_unapproved_origin() -> None:
         headers={
             "Origin": "http://127.0.0.1:45261",
             "Access-Control-Request-Method": "POST",
-            "Access-Control-Request-Headers": "Content-Type",
+            "Access-Control-Request-Headers": "Content-Type, X-Request-ID",
         },
     )
 

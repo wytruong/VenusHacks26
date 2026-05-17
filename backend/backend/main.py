@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from backend.routers.agents import router as agents_router
 from backend.routers.screening import router as screening_router
 
 LOCAL_VITE_ORIGINS = [
@@ -15,7 +16,7 @@ app.add_middleware(
     allow_origins=LOCAL_VITE_ORIGINS,
     allow_credentials=False,
     allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["Content-Type"],
+    allow_headers=["Content-Type", "X-Request-ID"],
 )
 
 
@@ -24,4 +25,5 @@ def health() -> dict[str, str]:
     return {"status": "ok", "service": "venus-hacks-backend"}
 
 
+app.include_router(agents_router)
 app.include_router(screening_router)

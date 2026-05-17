@@ -41,10 +41,11 @@ Run all backend tests:
 python -m pytest
 ```
 
-Run the focused agent runtime tests:
+Run the focused agent tests:
 
 ```bash
 python -m pytest tests/test_agent_runtime.py
+python -m pytest tests/test_agent_chat_api.py
 ```
 
 Run the focused prenatal API tests:
@@ -80,6 +81,7 @@ Backend tests currently live under `backend/tests/`.
 Primary backend coverage:
 
 - `backend/tests/test_agent_runtime.py` — deterministic provider selection, thread ID, tool allowlist, subagent allowlist, and runtime profile coverage without live LLM calls.
+- `backend/tests/test_agent_chat_api.py` — FastAPI agent chat success, validation failure, and runtime-unavailable behavior without live LLM calls.
 - `backend/tests/test_prenatal_cvd_api.py` — FastAPI health check, prenatal screening success path, validation failures, and model-unavailable behavior.
 
 Frontend automated tests are not currently defined in `package.json`; use `npm run lint` and `npm run build` as the current automated frontend checks.
@@ -90,7 +92,7 @@ Frontend automated tests are not currently defined in `package.json`; use `npm r
 | --- | --- |
 | Frontend UI, styling, 3D heart, onboarding, upload, or insight panel changes | `npm run lint`, `npm run build`, and browser smoke of the changed flow when possible |
 | Frontend prenatal API wiring | Frontend checks, browser smoke, and backend prenatal API tests |
-| Backend route/schema/service changes | Relevant focused tests, such as `python -m pytest tests/test_prenatal_cvd_api.py` or `python -m pytest tests/test_agent_runtime.py` |
+| Backend route/schema/service changes | Relevant focused tests, such as `python -m pytest tests/test_prenatal_cvd_api.py`, `python -m pytest tests/test_agent_runtime.py`, or `python -m pytest tests/test_agent_chat_api.py` |
 | Backend API contract changes | Focused backend tests plus `backend/API_REFERENCES.md` update |
 | Model mapping or model-error behavior changes | Focused backend tests covering success, validation, and `503` behavior |
 | Normalization/data contract changes | Relevant backend script checks plus updates to `backend/docs/normalization-pipeline.md` and `backend/docs/unified-schema-contract.json` |
@@ -113,7 +115,7 @@ For frontend UI changes, verify the relevant items in-browser when possible:
 2. Pregnancy onboarding remains readable and keyboard-accessible.
 3. Pregnancy risk profile form handles valid input and validation/error states.
 4. Heart reveal and right-side insight panels render without layout overlap.
-5. Doctor-note and ECG upload placeholders remain clearly labeled as placeholder/mock behavior unless real services are wired.
+5. Doctor-note OCR and ECG upload placeholders remain clearly labeled as placeholder/mock behavior unless real services are wired; doctor-note follow-up chat should return live agent responses or a safe unavailable message.
 6. 3D heart callouts, pointer interactions, and focus states still work after heart model or layout changes.
 7. Desktop and small viewport spacing stays balanced, with no large dead zones, cramped form groups, inconsistent section gaps, or alignment jumps.
 8. Small viewport behavior remains usable.

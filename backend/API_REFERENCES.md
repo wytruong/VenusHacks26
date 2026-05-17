@@ -17,7 +17,7 @@ This supports the current frontend risk API integration while keeping local orig
 
 - Allowed origins: `http://localhost:45260`, `http://127.0.0.1:45260`
 - Allowed methods: `GET`, `POST`, `OPTIONS`
-- Allowed headers: `Content-Type`
+- Allowed headers: `Content-Type`, `X-Request-ID`
 - Credentials: not enabled
 
 ## Live backend routes
@@ -25,6 +25,7 @@ This supports the current frontend risk API integration while keeping local orig
 The following backend routes are currently implemented:
 
 - `GET /health`
+- `POST /api/agents/chat`
 - `POST /api/screening/prenatal-cvd`
 - `POST /api/screening/prenatal-expanded` (backend-only; not wired to frontend UI yet)
 - `POST /api/screening/postnatal-followup` (backend-only; not wired to frontend UI yet)
@@ -43,6 +44,71 @@ Health check for the backend service.
 ```
 
 Source: `backend/main.py`.
+
+## `POST /api/agents/chat`
+
+Invokes the service-owned LangChain/deepagents maternal companion runtime. The doctor-note UI uses this route for follow-up questions after the current OCR summary is shown. Models are not autodiscovered from `/v1/models`; `AGENT_MODEL` remains the selected model, currently configured locally as `deepseek/deepseek-v4-flash`.
+
+Source files:
+
+- Route: `backend/routers/agents.py`
+- Request/response schema: `backend/schemas/agent_chat.py`
+- Service wrapper: `backend/services/agent_chat.py`
+- Agent runtime: `backend/services/agents/`
+
+### Request body
+
+```json
+{
+  "sessionId": "doctor-note-session-1",
+  "surface": "general_health_companion",
+  "doctorNote": {
+    "condition": "Hypertension",
+    "region": "Left Ventricle",
+    "risk": "HIGH",
+    "description": "Blood pressure is elevated during pregnancy.",
+    "doctorScript": "I want to discuss my blood pressure and heart health.",
+    "questions": ["What range is safe?"]
+  },
+  "messages": [
+    {"role": "user", "content": "What does this mean?"}
+  ]
+}
+```
+
+Fields:
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `sessionId` | string | Required non-blank client session ID; used to build the runtime thread ID. |
+| `surface` | string | Optional; defaults to `general_health_companion`. Supported values are `general_health_companion` and `maternal_risk`. |
+| `doctorNote` | object | Optional current doctor-note OCR summary; the service formats it as backend-owned runtime context. |
+| `messages` | array | Required non-empty user/assistant chat messages. Frontend callers cannot send system messages. |
+
+Unknown extra fields are ignored by the request schema (`extra="ignore"`).
+
+### Response `200`
+
+```json
+{
+  "assistantText": "Please review this with your OB or clinician.",
+  "messageCount": 2,
+  "threadId": "vh:agent:general_health_companion:doctor-note-session-1"
+}
+```
+
+### Error responses
+
+- `422`: invalid request body, blank session ID, blank message, unsupported surface, or unsupported message role.
+- `503`: agent provider configuration or runtime invocation unavailable.
+
+Runtime unavailable response:
+
+```json
+{
+  "detail": "Agent chat service is unavailable."
+}
+```
 
 ## `POST /api/screening/prenatal-cvd`
 

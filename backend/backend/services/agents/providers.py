@@ -6,6 +6,7 @@ from backend.services.agents.config import AgentConfigurationError, AgentRuntime
 
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 OPENAI_BASE_URL = "https://api.openai.com/v1"
+LOCAL_OPENAI_COMPATIBLE_BASE_URL = "http://localhost:8317/v1"
 
 
 @dataclass(frozen=True)
@@ -15,6 +16,17 @@ class AgentProviderConfig:
     model: str
     provider: str
     timeout_seconds: float
+
+
+def _normalize_openai_compatible_base_url(value: str) -> str:
+    base_url = value.rstrip("/")
+    if base_url == "http://localhost:8317":
+        return LOCAL_OPENAI_COMPATIBLE_BASE_URL
+    return base_url
+
+
+def _is_allowed_openai_compatible_base_url(value: str) -> bool:
+    return value.startswith("https://") or value.startswith("http://localhost:") or value.startswith("http://127.0.0.1:")
 
 
 def resolve_agent_provider_config(settings: AgentRuntimeSettings) -> AgentProviderConfig:
@@ -51,10 +63,10 @@ def resolve_agent_provider_config(settings: AgentRuntimeSettings) -> AgentProvid
             raise AgentConfigurationError(
                 "AGENT_OPENAI_COMPATIBLE_BASE_URL is required for agent model provider."
             )
-        base_url = str(settings.agent_openai_compatible_base_url).rstrip("/")
-        if not base_url.startswith("https://"):
+        base_url = _normalize_openai_compatible_base_url(str(settings.agent_openai_compatible_base_url))
+        if not _is_allowed_openai_compatible_base_url(base_url):
             raise AgentConfigurationError(
-                "AGENT_OPENAI_COMPATIBLE_BASE_URL must use https."
+                "AGENT_OPENAI_COMPATIBLE_BASE_URL must use https or local http."
             )
         return AgentProviderConfig(
             api_key=settings.agent_openai_compatible_api_key,

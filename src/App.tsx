@@ -26,6 +26,7 @@ import type { DoctorNoteOcrResult } from './features/doctor-note/doctorNote.type
 import DoctorNoteInsightPanel from './features/doctor-note/DoctorNoteInsightPanel'
 import { createEmptyRiskFactors } from './features/risk-profile/riskProfilePayload'
 import type { PregnancyRiskResult, RiskFactors } from './features/risk-profile/riskProfile.types'
+import { AgentChatApiError, submitAgentChat } from './api/agentChat'
 import { submitPrenatalCvdScreening } from './api/screening'
 import { ScreeningApiError, type PrenatalCvdRequest } from './types/screening'
 import RiskResultPanel from './features/risk-profile/RiskResultPanel'
@@ -108,6 +109,10 @@ function toPrenatalRequest(riskFactors: RiskFactors, profileAge: string): Prenat
     smokedPregnancy,
     multipleGestation,
   }
+}
+
+function createDoctorNoteChatSessionId() {
+  return `doctor-note-${Date.now()}-${Math.random().toString(36).slice(2)}`
 }
 
 function getPrenatalValidationMessage(riskFactors: RiskFactors, profileAge: string): string | null {
@@ -198,8 +203,12 @@ export default function App() {
   const [doctorNoteOcrResult, setDoctorNoteOcrResult] =
     useState<DoctorNoteOcrResult | null>(null)
   const [doctorNoteFollowUpDraft, setDoctorNoteFollowUpDraft] = useState('')
-  const [doctorNoteFollowUpShowPlaceholder, setDoctorNoteFollowUpShowPlaceholder] =
-    useState(false)
+  const [doctorNoteFollowUpResponse, setDoctorNoteFollowUpResponse] = useState<string | null>(null)
+  const [doctorNoteFollowUpError, setDoctorNoteFollowUpError] = useState<string | null>(null)
+  const [doctorNoteFollowUpLoading, setDoctorNoteFollowUpLoading] = useState(false)
+  const [doctorNoteChatSessionId, setDoctorNoteChatSessionId] = useState(() =>
+    createDoctorNoteChatSessionId(),
+  )
   const [ecgReadingLoading, setEcgReadingLoading] = useState(false)
 
   const profileAvatarInputRef = useRef<HTMLInputElement>(null)
@@ -327,7 +336,10 @@ export default function App() {
     setMeshInfo(null)
     navigate(ROUTE_PATHS.heart)
     setDoctorNoteFollowUpDraft('')
-    setDoctorNoteFollowUpShowPlaceholder(false)
+    setDoctorNoteFollowUpResponse(null)
+    setDoctorNoteFollowUpError(null)
+    setDoctorNoteFollowUpLoading(false)
+    setDoctorNoteChatSessionId(createDoctorNoteChatSessionId())
     setDoctorNoteOcrLoading(true)
     setDoctorNoteOcrResult(null)
     setHeartInteractive(false)
@@ -341,11 +353,35 @@ export default function App() {
     }, DOCTOR_NOTE_READING_MS)
   }
 
-  const submitDoctorNoteFollowUp = (e?: FormEvent<HTMLFormElement>) => {
+  const submitDoctorNoteFollowUp = async (e?: FormEvent<HTMLFormElement>) => {
     e?.preventDefault()
-    if (!doctorNoteOcrResult || !doctorNoteFollowUpDraft.trim()) return
-    setDoctorNoteFollowUpShowPlaceholder(true)
-    setDoctorNoteFollowUpDraft('')
+    const question = doctorNoteFollowUpDraft.trim()
+    if (!doctorNoteOcrResult || !question || doctorNoteFollowUpLoading) return
+
+    setDoctorNoteFollowUpLoading(true)
+    setDoctorNoteFollowUpError(null)
+    setDoctorNoteFollowUpResponse(null)
+
+    try {
+      const response = await submitAgentChat({
+        sessionId: doctorNoteChatSessionId,
+        surface: 'general_health_companion',
+        doctorNote: doctorNoteOcrResult,
+        messages: [{ role: 'user', content: question }],
+      })
+      setDoctorNoteFollowUpResponse(response.assistantText)
+      setDoctorNoteFollowUpDraft('')
+    } catch (error) {
+      if (error instanceof AgentChatApiError) {
+        setDoctorNoteFollowUpError(error.userMessage)
+      } else {
+        setDoctorNoteFollowUpError(
+          'We could not answer that question right now. Please try again shortly.',
+        )
+      }
+    } finally {
+      setDoctorNoteFollowUpLoading(false)
+    }
   }
 
   const handlePregnancyRiskSubmit = async () => {
@@ -485,7 +521,10 @@ export default function App() {
     setDoctorNoteOcrLoading(false)
     setDoctorNoteOcrResult(null)
     setDoctorNoteFollowUpDraft('')
-    setDoctorNoteFollowUpShowPlaceholder(false)
+    setDoctorNoteFollowUpResponse(null)
+    setDoctorNoteFollowUpError(null)
+    setDoctorNoteFollowUpLoading(false)
+    setDoctorNoteChatSessionId(createDoctorNoteChatSessionId())
     setEcgReadingLoading(false)
     if (readDoctorNoteTimerRef.current) {
       window.clearTimeout(readDoctorNoteTimerRef.current)
@@ -698,7 +737,9 @@ export default function App() {
           <DoctorNoteInsightPanel
             result={doctorNoteOcrResult}
             draft={doctorNoteFollowUpDraft}
-            showPlaceholder={doctorNoteFollowUpShowPlaceholder}
+            response={doctorNoteFollowUpResponse}
+            error={doctorNoteFollowUpError}
+            isLoading={doctorNoteFollowUpLoading}
             setDraft={setDoctorNoteFollowUpDraft}
             onSubmitFollowUp={submitDoctorNoteFollowUp}
           />
