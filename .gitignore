@@ -28,6 +28,7 @@ public/heart-model/scene.bin
 .env
 
 graphify-out/
+.playwright-mcp/
 
 # Backend local data and generated artifacts
 backend/data/
@@ -44,6 +45,8 @@ backend/models/**
 !backend/models/cdc-natality/
 !backend/models/cdc-natality/default/
 !backend/models/cdc-natality/default/**
+!backend/models/lead1_dataset_invariance/
+!backend/models/lead1_dataset_invariance/best_kept_adversarial.pt
 
 # External local data
 /Users/benj/Documents/Coding/cardiac_mvp/data

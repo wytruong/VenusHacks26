@@ -1,7 +1,13 @@
+import logging
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+logging.basicConfig(level=logging.INFO)
+
+from backend.middleware.request_size import RequestSizeLimitMiddleware
 from backend.routers.agents import router as agents_router
+from backend.routers.ecg import router as ecg_router
 from backend.routers.screening import router as screening_router
 
 LOCAL_VITE_ORIGINS = [
@@ -11,6 +17,7 @@ LOCAL_VITE_ORIGINS = [
 
 app = FastAPI(title="VenusHacks Screening API")
 
+app.add_middleware(RequestSizeLimitMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=LOCAL_VITE_ORIGINS,
@@ -27,3 +34,4 @@ def health() -> dict[str, str]:
 
 app.include_router(agents_router)
 app.include_router(screening_router)
+app.include_router(ecg_router)
