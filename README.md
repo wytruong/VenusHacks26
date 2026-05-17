@@ -115,6 +115,13 @@ Expected response:
 
 ## Backend API
 
+### Live backend routes
+
+- `GET /health`
+- `POST /api/screening/prenatal-cvd`
+- `POST /api/screening/prenatal-expanded` *(backend-only; not wired to frontend UI yet)*
+- `POST /api/screening/postnatal-followup` *(backend-only; not wired to frontend UI yet)*
+
 ### `POST /api/screening/prenatal-cvd`
 
 Runs the shipped prenatal CVD follow-up prioritization model. The endpoint accepts frontend-shaped prenatal risk form fields and maps them to the model's internal feature names.
@@ -137,7 +144,13 @@ Important response fields:
 - `safety_note`
 - `disclaimer`
 
-The current backend endpoint supports `pregnancyMode: "prenatal"` only. Postpartum UI fields exist, but a postpartum model endpoint has not been implemented yet.
+The current `POST /api/screening/prenatal-cvd` endpoint supports `pregnancyMode: "prenatal"` only and does not accept postnatal/postpartum submissions. Postpartum UI fields exist, and backend follow-up routes (`/api/screening/prenatal-expanded` and `/api/screening/postnatal-followup`) are available for API use, but are not wired to the frontend UI yet.
+
+Validation summary:
+
+- Numeric fields accept numbers or numeric strings; empty/non-numeric values return `422`.
+- Boolean fields are strict booleans; `null` returns `422`.
+- Backend model unavailability returns `503` with a safe message (`Prenatal screening model is unavailable.`).
 
 For local development, backend CORS is intentionally limited to the Vite dev origins on port `45260` (`localhost` and `127.0.0.1`).
 
@@ -174,7 +187,7 @@ The shipped prenatal backend model is a follow-up prioritization aid trained fro
 
 Important clinical limitation: the model output is not a diagnosis and is not a direct cardiovascular disease probability. Clinical judgment should guide care decisions.
 
-Postpartum risk profiling is currently represented in the UI as collected form fields and is not yet connected to a backend model endpoint.
+Postpartum risk profiling is currently represented in the UI as collected form fields and is not yet connected to the backend-only screening routes (`/api/screening/prenatal-expanded` and `/api/screening/postnatal-followup`).
 
 ## Research Foundation
 

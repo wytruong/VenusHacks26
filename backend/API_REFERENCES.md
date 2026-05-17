@@ -20,6 +20,15 @@ This supports the current frontend risk API integration while keeping local orig
 - Allowed headers: `Content-Type`
 - Credentials: not enabled
 
+## Live backend routes
+
+The following backend routes are currently implemented:
+
+- `GET /health`
+- `POST /api/screening/prenatal-cvd`
+- `POST /api/screening/prenatal-expanded` (backend-only; not wired to frontend UI yet)
+- `POST /api/screening/postnatal-followup` (backend-only; not wired to frontend UI yet)
+
 ## `GET /health`
 
 Health check for the backend service.
@@ -54,12 +63,12 @@ The endpoint accepts the current frontend-shaped payload:
 ```json
 {
   "pregnancyMode": "prenatal",
-  "age": "35",
-  "prepregnancyBmi": "32.0",
+  "age": 35,
+  "prepregnancyBmi": 32.0,
   "chronicHypertension": true,
   "diabetes": false,
   "priorPretermOrStillbirth": true,
-  "liveBirthsCount": "1",
+  "liveBirthsCount": 1,
   "smokedPregnancy": false,
   "multipleGestation": false
 }
@@ -79,7 +88,15 @@ Fields:
 | `smokedPregnancy` | boolean | Maps to `smoking_before_or_during_pregnancy` as `0`/`1`. |
 | `multipleGestation` | boolean | Maps to `multiple_gestation_known_or_suspected` as `0`/`1`. |
 
-Unknown extra fields are ignored by the request schema.
+Unknown extra fields are ignored by the request schema (`extra="ignore"`).
+
+Validation behavior:
+
+- `pregnancyMode` must be `"prenatal"`.
+- `age`, `prepregnancyBmi`, and `liveBirthsCount` accept numbers or numeric strings.
+- Empty strings for numeric fields fail validation (`422`).
+- Non-numeric strings for numeric fields fail validation (`422`).
+- Boolean fields use strict booleans (`true`/`false` only). `null` fails validation (`422`).
 
 ### Response `200`
 
@@ -118,7 +135,7 @@ Important fields:
 
 ### Error responses
 
-- `422`: invalid request body, unsupported `pregnancyMode`, null booleans, or non-numeric numeric fields.
+- `422`: invalid request body, unsupported `pregnancyMode`, null/non-boolean flags, empty numeric strings, or non-numeric numeric fields.
 - `503`: model layer unavailable.
 
 Model unavailable response:
@@ -129,14 +146,138 @@ Model unavailable response:
 }
 ```
 
-No backend endpoints are currently provided for postpartum screening, ECG interpretation uploads, or doctor-note OCR; those frontend flows remain placeholders/backlog.
+## `POST /api/screening/prenatal-expanded`
+
+Runs the backend prenatal-expanded maternal screening contract. This route is currently backend-only and is not wired to frontend UI flows yet.
+
+Source files:
+
+- Route: `backend/routers/screening.py`
+- Request schema: `backend/schemas/screening.py`
+- Service wrapper: `backend/services/maternal_screening.py`
+- Runtime helper: `scripts/maternal/prenatal_expanded_screening_v3_1_timing_safe.py`
+- Artifact directory: `models/cdc-natality/prenatal_expanded_screening_v3_1_timing_safe/`
+
+### Request body
+
+Numeric fields accept JSON numbers or numeric strings.
+
+Boolean clinical flags require strict JSON booleans (`true`/`false`).
+
+Unknown extra fields are ignored by the schema.
+
+Invalid payloads return `422`.
+
+Validation specifics:
+
+- Empty strings for numeric fields return `422`.
+- Non-numeric strings for numeric fields return `422`.
+- String booleans like `"true"`/`"false"` return `422`.
+
+### Response `200` (top-level fields)
+
+- `model_mode`
+- `model_name`
+- `model_version`
+- `overall_followup_priority`
+- `maternal_cv_metabolic_signal`
+- `obstetric_neonatal_signal`
+- `current_composite_signal`
+- `missing_inputs`
+- `data_quality_warnings`
+- `safety_note`
+
+Safety note semantics: outputs are prioritization/follow-up aids, not diagnoses.
+
+### Error responses
+
+- `422`: request validation failure.
+- `503`: model unavailable.
+
+Model unavailable response:
+
+```json
+{
+  "detail": "Prenatal expanded screening model is unavailable."
+}
+```
+
+## `POST /api/screening/postnatal-followup`
+
+Runs the backend postnatal-followup maternal screening contract. This route is currently backend-only and is not wired to frontend UI flows yet.
+
+Source files:
+
+- Route: `backend/routers/screening.py`
+- Request schema: `backend/schemas/screening.py`
+- Service wrapper: `backend/services/maternal_screening.py`
+- Runtime helper: `scripts/maternal/postnatal_followup_v1.py`
+- Artifact directory: `models/cdc-natality/postnatal_followup_v1/`
+
+### Request body
+
+Numeric fields accept JSON numbers or numeric strings.
+
+Boolean clinical flags require strict JSON booleans (`true`/`false`).
+
+Unknown extra fields are ignored by the schema.
+
+Invalid payloads return `422`.
+
+Validation specifics:
+
+- Empty strings for numeric fields return `422`.
+- Non-numeric strings for numeric fields return `422`.
+- String booleans like `"true"`/`"false"` return `422`.
+
+### Response `200` (top-level fields)
+
+- `model_mode`
+- `model_name`
+- `model_version`
+- `routing_method`
+- `overall_followup_priority`
+- `hypertension_followup_signal`
+- `diabetes_followup_signal`
+- `maternal_cv_metabolic_followup_signal`
+- `obstetric_neonatal_context_signal`
+- `severe_maternal_morbidity_followup_signal`
+- `auxiliary_ml_scores`
+- `context_flags`
+- `missing_inputs`
+- `data_quality_warnings`
+- `safety_note`
+
+Safety note semantics: outputs are prioritization/follow-up aids, not diagnoses.
+
+### Error responses
+
+- `422`: request validation failure.
+- `503`: model unavailable.
+
+Model unavailable response:
+
+```json
+{
+  "detail": "Postnatal follow-up model is unavailable."
+}
+```
+
+`POST /api/screening/prenatal-cvd` remains a prenatal-only, frontend-shaped minimal contract and does not support postnatal submissions.
 
 ### Smoke test
 
 ```bash
 curl -X POST http://127.0.0.1:45261/api/screening/prenatal-cvd \
   -H 'Content-Type: application/json' \
-  -d '{"pregnancyMode":"prenatal","age":"35","prepregnancyBmi":"32.0","chronicHypertension":true,"diabetes":false,"priorPretermOrStillbirth":true,"liveBirthsCount":"1","smokedPregnancy":false,"multipleGestation":false}'
+  -d '{"pregnancyMode":"prenatal","age":35,"prepregnancyBmi":32.0,"chronicHypertension":true,"diabetes":false,"priorPretermOrStillbirth":true,"liveBirthsCount":1,"smokedPregnancy":false,"multipleGestation":false}'
+```
+
+## Focused backend API tests
+
+```bash
+python -m pytest tests/test_prenatal_cvd_api.py
+python -m pytest tests/test_maternal_screening_api.py
 ```
 
 ## Model Reference
