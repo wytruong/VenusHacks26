@@ -131,6 +131,12 @@ def test_thread_id_is_deterministic_and_omits_missing_user() -> None:
         )
         == "vh:agent:general_health_companion:session-1"
     )
+    assert (
+        build_agent_thread_id(
+            AgentRuntimeContext(session_id="session-1", surface="doctor_note_screening")
+        )
+        == "vh:agent:doctor_note_screening:session-1"
+    )
 
 
 def test_tool_registry_exposes_safe_non_mutating_tools() -> None:
@@ -139,6 +145,9 @@ def test_tool_registry_exposes_safe_non_mutating_tools() -> None:
     assert [registered_tool.name for registered_tool in tools] == [
         "get_prenatal_model_context",
         "summarize_prenatal_risk_result",
+        "get_doctor_note_screening_contract",
+        "get_maternal_screening_model_context",
+        "prepare_doctor_note_extraction_payload",
         "get_supported_backend_capabilities",
     ]
     assert not any(name.startswith(("run_", "submit_", "delete_")) for name in [tool.name for tool in tools])
@@ -150,12 +159,18 @@ def test_subagent_allowlists_are_exact() -> None:
 
     assert [subagent["name"] for subagent in subagents] == [
         "prenatal-risk-explainer",
+        "doctor-note-screening-extractor",
         "care-navigation-guide",
     ]
     assert profile_subagent_tool_names(subagents) == {
         "prenatal-risk-explainer": [
             "get_prenatal_model_context",
             "summarize_prenatal_risk_result",
+        ],
+        "doctor-note-screening-extractor": [
+            "get_doctor_note_screening_contract",
+            "get_maternal_screening_model_context",
+            "prepare_doctor_note_extraction_payload",
         ],
         "care-navigation-guide": [
             "get_supported_backend_capabilities",
@@ -210,9 +225,13 @@ def test_runtime_invocation_reports_profile_and_thread_id() -> None:
     assert result.profile.tool_names == [
         "get_prenatal_model_context",
         "summarize_prenatal_risk_result",
+        "get_doctor_note_screening_contract",
+        "get_maternal_screening_model_context",
+        "prepare_doctor_note_extraction_payload",
         "get_supported_backend_capabilities",
     ]
     assert result.profile.subagent_names == [
         "prenatal-risk-explainer",
+        "doctor-note-screening-extractor",
         "care-navigation-guide",
     ]

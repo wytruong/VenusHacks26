@@ -10,6 +10,7 @@ export type AgentChatRequest = {
   surface: 'general_health_companion' | 'maternal_risk'
   messages: AgentChatMessage[]
   doctorNote?: DoctorNoteOcrResult
+  doctorNoteScreening?: DoctorNoteOcrResult['screening']
 }
 
 export type AgentChatResponse = {

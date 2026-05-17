@@ -2,6 +2,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from backend.schemas.doctor_note_screening import DoctorNoteScreeningResponse
+
 
 AgentChatSurface = Literal["maternal_risk", "general_health_companion"]
 AgentChatMessageRole = Literal["assistant", "user"]
@@ -39,6 +41,10 @@ class AgentChatRequest(BaseModel):
     user_id: str | None = Field(default=None, alias="userId")
     prenatal_risk_result: dict[str, Any] | None = Field(default=None, alias="prenatalRiskResult")
     doctor_note: DoctorNoteChatContext | None = Field(default=None, alias="doctorNote")
+    doctor_note_screening: DoctorNoteScreeningResponse | None = Field(
+        default=None,
+        alias="doctorNoteScreening",
+    )
 
     @field_validator("session_id")
     @classmethod

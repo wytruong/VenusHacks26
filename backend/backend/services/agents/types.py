@@ -2,7 +2,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-AgentSurface = Literal["maternal_risk", "general_health_companion"]
+AgentSurface = Literal["maternal_risk", "general_health_companion", "doctor_note_screening"]
 AgentMessageRole = Literal["assistant", "system", "user"]
 
 
@@ -18,6 +18,8 @@ class AgentRuntimeContext(BaseModel):
     surface: AgentSurface
     user_id: str | None = None
     prenatal_risk_result: dict[str, Any] | None = None
+    doctor_note: dict[str, Any] | None = None
+    maternal_screening_result: dict[str, Any] | None = None
 
 
 class AgentInvocation(BaseModel):

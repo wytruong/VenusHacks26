@@ -24,11 +24,30 @@ def create_agent_subagents(tools: Sequence[BaseTool]) -> list[dict[str, Any]]:
             ),
         },
         {
+            "name": "doctor-note-screening-extractor",
+            "description": "Extracts prenatal or postnatal screening input from a translated demo doctor note.",
+            "system_prompt": (
+                "Use get_doctor_note_screening_contract, get_maternal_screening_model_context, "
+                "and prepare_doctor_note_extraction_payload. Inspect the selected englishDemoNote, "
+                "decide whether the note is prenatal, postnatal, or none, and return strict JSON only. "
+                "Do not invent clinical values, diagnose, or hardcode extraction from demo IDs, categories, "
+                "groups, or condition codes. Use null for missing or uncertain fields."
+            ),
+            "tools": _pick_tools(
+                tools,
+                [
+                    "get_doctor_note_screening_contract",
+                    "get_maternal_screening_model_context",
+                    "prepare_doctor_note_extraction_payload",
+                ],
+            ),
+        },
+        {
             "name": "care-navigation-guide",
             "description": "Explains supported prototype capabilities and honest backlog boundaries.",
             "system_prompt": (
                 "Use get_supported_backend_capabilities and get_prenatal_model_context only. "
-                "Describe unsupported postpartum, ECG, and OCR flows as placeholders unless a tool says otherwise."
+                "Describe unsupported ECG and OCR image extraction flows as placeholders unless a tool says otherwise."
             ),
             "tools": _pick_tools(
                 tools,

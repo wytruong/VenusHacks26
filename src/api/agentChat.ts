@@ -43,6 +43,7 @@ export async function submitAgentChat(payload: AgentChatRequest): Promise<AgentC
     sessionId: payload.sessionId,
     messageCount: payload.messages.length,
     hasDoctorNote: Boolean(payload.doctorNote),
+    hasDoctorNoteScreening: Boolean(payload.doctorNoteScreening),
   })
 
   try {

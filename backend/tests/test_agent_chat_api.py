@@ -65,6 +65,42 @@ def test_agent_chat_route_invokes_runtime_with_doctor_note_context(monkeypatch: 
     assert FakeRuntime.last_invocation.messages[1].content == "What does this mean?"
 
 
+def test_agent_chat_route_includes_processed_screening_context(monkeypatch: Any) -> None:
+    runtime = FakeRuntime()
+    monkeypatch.setattr("backend.services.agent_chat.get_agent_chat_runtime", lambda: runtime)
+    payload = {
+        **VALID_PAYLOAD,
+        "doctorNoteScreening": {
+            "status": "processed",
+            "screeningContext": "prenatal",
+            "extractedInput": {"mother_age": 31, "prepregnancy_hypertension": True},
+            "riskResult": {
+                "risk_tier": "high",
+                "recommended_followup_priority": "High-priority prenatal follow-up",
+            },
+            "evidence": ["pregnant patient with chronic hypertension"],
+            "missingOrUncertainFields": ["mother_bmi"],
+            "insight": {
+                "title": "Prenatal screening signal",
+                "riskLabel": "HIGH",
+                "summary": "The note supports prenatal screening.",
+                "recommendedFollowup": "High-priority prenatal follow-up",
+                "safetyNote": "Screening aid, not a diagnosis.",
+            },
+        },
+    }
+
+    response = client.post("/api/agents/chat", json=payload)
+
+    assert response.status_code == 200
+    assert FakeRuntime.last_invocation is not None
+    assert FakeRuntime.last_invocation.context.maternal_screening_result == payload["doctorNoteScreening"]["riskResult"]
+    assert FakeRuntime.last_invocation.messages[1].role == "system"
+    assert "Screening context: prenatal" in FakeRuntime.last_invocation.messages[1].content
+    assert "mother_bmi" in FakeRuntime.last_invocation.messages[1].content
+    assert FakeRuntime.last_invocation.messages[2].role == "user"
+
+
 def test_agent_chat_rejects_blank_message() -> None:
     response = client.post(
         "/api/agents/chat",

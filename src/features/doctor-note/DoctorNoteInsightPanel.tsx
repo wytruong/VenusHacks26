@@ -10,11 +10,75 @@ type DoctorNoteInsightPanelProps = {
   response: string | null
   error: string | null
   isLoading: boolean
+  screeningLoading?: boolean
+  screeningError?: string | null
   setDraft: (v: string) => void
   onSubmitFollowUp: (e?: FormEvent<HTMLFormElement>) => void
 }
 
-export default function DoctorNoteInsightPanel({ result, draft, response, error, isLoading, setDraft, onSubmitFollowUp }: DoctorNoteInsightPanelProps) {
+function ScreeningStatusCard({ result, loading, error }: { result: DoctorNoteOcrResult['screening']; loading: boolean; error: string | null }) {
+  if (loading) {
+    return (
+      <div className="mt-4 rounded-xl border border-white/15 bg-white/[0.06] px-3.5 py-3">
+        <div className="font-semibold uppercase tracking-[0.06em] text-[#F4C2C2]" style={{ fontFamily: dmSans, fontSize: 10 }}>
+          Maternal screening
+        </div>
+        <p className="m-0 mt-2 text-[#D4B8B8]" style={{ fontFamily: dmSans, fontSize: 12, lineHeight: 1.5 }}>
+          Processing note for prenatal/postnatal screening…
+        </p>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="mt-4 rounded-xl border border-amber-300/30 bg-amber-300/[0.08] px-3.5 py-3">
+        <div className="font-semibold uppercase tracking-[0.06em] text-amber-200" style={{ fontFamily: dmSans, fontSize: 10 }}>
+          Screening unavailable
+        </div>
+        <p className="m-0 mt-2 text-[#D4B8B8]" style={{ fontFamily: dmSans, fontSize: 12, lineHeight: 1.5 }}>
+          {error}
+        </p>
+      </div>
+    )
+  }
+
+  if (!result) return null
+
+  return (
+    <div className="mt-4 rounded-xl border border-[#E88080]/35 bg-[#E88080]/[0.10] px-3.5 py-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="font-semibold uppercase tracking-[0.06em] text-[#E88080]" style={{ fontFamily: dmSans, fontSize: 10 }}>
+          {result.screeningContext === 'none' ? 'No screening model run' : `${result.screeningContext} screening`}
+        </span>
+        <span className="rounded-full border border-white/20 bg-white/[0.08] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[#FDF0F0]" style={{ fontFamily: dmSans }}>
+          {result.insight.riskLabel}
+        </span>
+      </div>
+      <p className="m-0 mt-2 font-semibold text-[#FDF0F0]" style={{ fontFamily: dmSans, fontSize: 13, lineHeight: 1.45 }}>
+        {result.insight.title}
+      </p>
+      <p className="m-0 mt-2 text-[#D4B8B8]" style={{ fontFamily: dmSans, fontSize: 12, lineHeight: 1.5 }}>
+        {result.insight.summary}
+      </p>
+      <p className="m-0 mt-2 text-[#F4C2C2]" style={{ fontFamily: dmSans, fontSize: 12, lineHeight: 1.5 }}>
+        {result.insight.recommendedFollowup}
+      </p>
+      {result.missingOrUncertainFields.length ? (
+        <p className="m-0 mt-2 text-[#9B7B7B]" style={{ fontFamily: dmSans, fontSize: 11, lineHeight: 1.45 }}>
+          Missing or uncertain: {result.missingOrUncertainFields.join(', ')}
+        </p>
+      ) : null}
+      {result.insight.safetyNote ? (
+        <p className="m-0 mt-2 text-[#9B7B7B]" style={{ fontFamily: dmSans, fontSize: 10, lineHeight: 1.45 }}>
+          {result.insight.safetyNote}
+        </p>
+      ) : null}
+    </div>
+  )
+}
+
+export default function DoctorNoteInsightPanel({ result, draft, response, error, isLoading, screeningLoading = false, screeningError = null, setDraft, onSubmitFollowUp }: DoctorNoteInsightPanelProps) {
   if (!result) return null
 
   return (
@@ -58,6 +122,12 @@ export default function DoctorNoteInsightPanel({ result, draft, response, error,
             </li>
           ))}
         </ul>
+
+        <ScreeningStatusCard
+          result={result.screening}
+          loading={screeningLoading}
+          error={screeningError}
+        />
 
         <div className="mt-4 border-t border-white/10 pt-4">
           <div className="mb-2 font-normal text-[#9B7B7B]" style={{ fontFamily: dmSans, fontSize: 11 }}>
