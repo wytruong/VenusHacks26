@@ -1,4 +1,4 @@
-# Hear Your Heart 💗
+# Hear Your Heart 
 
 > Cardiac health, explained for you.
 
