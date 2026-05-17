@@ -19,6 +19,7 @@ Use these rules with `AGENTS.md`, `backend/README.md`, and `backend/API_REFERENC
 11. Keep Normalization Contracts Synchronized
 12. Name Backend Files by Ownership
 13. Test Public API Behavior Through FastAPI
+14. Keep Agent Runtime Orchestration Service-Owned
 
 ## 1. Keep Backend Docs, Tests, and Contracts Aligned
 
@@ -55,6 +56,7 @@ python --version
 - Frontend-payload to model-feature mapping and inference wrapping belong in `backend/backend/services/prenatal_cvd.py`.
 - Core model inference belongs in `backend/scripts/maternal/prenatal_cvd_model_a.py`.
 - Do not duplicate model feature mapping, thresholds, artifact loading, or response shaping across routers and scripts.
+- Agent orchestration belongs in `backend/backend/services/agents/`; route modules should not own provider selection, tool registration, subagent allowlists, or runtime state wiring.
 
 ## 4. Preserve the Prenatal Screening API Contract
 
@@ -124,3 +126,10 @@ python --version
 - Public route behavior must be tested through the FastAPI app, not only through lower-level helpers.
 - Keep `backend/tests/test_prenatal_cvd_api.py` current for prenatal request validation, successful responses, and model-unavailable behavior.
 - Add focused backend tests when changing schemas, service mapping, model error handling, or API response fields.
+
+## 14. Keep Agent Runtime Orchestration Service-Owned
+
+- `backend/backend/services/agents/` owns LangChain/deepagents runtime setup, provider selection, tools, subagents, thread IDs, and runtime profile metadata.
+- Provider switching must remain environment-driven and support only explicit providers: OpenRouter, OpenAI, and configured OpenAI-compatible HTTPS base URLs.
+- Agent tools and subagents must be deterministic and allowlisted; do not add broad filesystem, shell, network, mutation, or live-provider behavior without a route contract and tests.
+- Do not duplicate prenatal model feature mapping or artifact loading in agent tools; call or summarize service-owned outputs instead.

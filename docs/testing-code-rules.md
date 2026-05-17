@@ -16,6 +16,7 @@ Use these rules with `docs/testing-and-validation.md`, `docs/backend-code-rules.
 8. Keep Test Data Minimal and Non-Sensitive
 9. Update Test Docs With Test Workflow Changes
 10. Remove Stale Donor-Project Test Rules
+11. Keep Agent Runtime Tests Deterministic
 
 ## 1. Match Test Coverage to the Changed Surface
 
@@ -34,6 +35,12 @@ Use these rules with `docs/testing-and-validation.md`, `docs/backend-code-rules.
 source /Users/benj/Documents/Coding/cardiac_mvp/.venv/bin/activate
 cd /Users/benj/Documents/Coding/VenusHacks26/backend
 python -m pytest
+```
+
+- Focused agent runtime tests:
+
+```bash
+python -m pytest tests/test_agent_runtime.py
 ```
 
 - Focused prenatal API tests:
@@ -79,8 +86,8 @@ When the request or response contract changes, update `backend/API_REFERENCES.md
 
 ## 7. Do Not Add Live or External Calls to Deterministic Tests
 
-- Deterministic tests must not depend on live clinical systems, external APIs, provider credentials, or local raw datasets.
-- Use small fixtures, monkeypatching, or FastAPI test clients for backend behavior.
+- Deterministic tests must not depend on live clinical systems, external APIs, provider credentials, live LLM providers, or local raw datasets.
+- Use small fixtures, monkeypatching, fake runtime factories, or FastAPI test clients for backend behavior.
 - Any future live validation must be explicitly opt-in, documented with its required environment variables, and excluded from normal local test commands.
 
 ## 8. Keep Test Data Minimal and Non-Sensitive
@@ -100,3 +107,9 @@ When the request or response contract changes, update `backend/API_REFERENCES.md
 - Do not add active test rules for nonexistent paths, scripts, services, providers, auth systems, generated inventories, test harnesses, or workflows.
 - If an inherited rule has a useful principle, rewrite it to current VenusHacks files and commands before keeping it.
 - If a rule cannot be validated against current code, tests, or docs, remove it from active test rules.
+
+## 11. Keep Agent Runtime Tests Deterministic
+
+- `backend/tests/test_agent_runtime.py` should cover provider selection, safe configuration errors, thread IDs, tool allowlists, subagent allowlists, and runtime profile metadata.
+- Agent runtime tests must use monkeypatching, fake models, or fake agent factories instead of live OpenRouter, OpenAI, or OpenAI-compatible provider calls.
+- Live provider smoke checks must be opt-in, skipped by default, and documented with required environment variables before they are added.

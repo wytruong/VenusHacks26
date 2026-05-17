@@ -41,6 +41,12 @@ Run all backend tests:
 python -m pytest
 ```
 
+Run the focused agent runtime tests:
+
+```bash
+python -m pytest tests/test_agent_runtime.py
+```
+
 Run the focused prenatal API tests:
 
 ```bash
@@ -71,8 +77,9 @@ curl -X POST http://127.0.0.1:45261/api/screening/prenatal-cvd \
 
 Backend tests currently live under `backend/tests/`.
 
-Primary API coverage:
+Primary backend coverage:
 
+- `backend/tests/test_agent_runtime.py` — deterministic provider selection, thread ID, tool allowlist, subagent allowlist, and runtime profile coverage without live LLM calls.
 - `backend/tests/test_prenatal_cvd_api.py` — FastAPI health check, prenatal screening success path, validation failures, and model-unavailable behavior.
 
 Frontend automated tests are not currently defined in `package.json`; use `npm run lint` and `npm run build` as the current automated frontend checks.
@@ -83,7 +90,7 @@ Frontend automated tests are not currently defined in `package.json`; use `npm r
 | --- | --- |
 | Frontend UI, styling, 3D heart, onboarding, upload, or insight panel changes | `npm run lint`, `npm run build`, and browser smoke of the changed flow when possible |
 | Frontend prenatal API wiring | Frontend checks, browser smoke, and backend prenatal API tests |
-| Backend route/schema/service changes | `python -m pytest tests/test_prenatal_cvd_api.py` |
+| Backend route/schema/service changes | Relevant focused tests, such as `python -m pytest tests/test_prenatal_cvd_api.py` or `python -m pytest tests/test_agent_runtime.py` |
 | Backend API contract changes | Focused backend tests plus `backend/API_REFERENCES.md` update |
 | Model mapping or model-error behavior changes | Focused backend tests covering success, validation, and `503` behavior |
 | Normalization/data contract changes | Relevant backend script checks plus updates to `backend/docs/normalization-pipeline.md` and `backend/docs/unified-schema-contract.json` |

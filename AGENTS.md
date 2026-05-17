@@ -22,10 +22,12 @@ Backend API:
 - `backend/backend/main.py` — FastAPI app entrypoint.
 - `backend/backend/routers/` — API route modules.
 - `backend/backend/schemas/` — Pydantic request/response schemas.
-- `backend/backend/services/` — model input mapping and inference wrappers.
+- `backend/backend/services/` — model input mapping, inference wrappers, and service-owned runtime modules.
+- `backend/backend/services/agents/` — route-free LangChain/deepagents runtime, provider selection, tools, and subagents.
 - `backend/backend/routers/screening.py` — screening routes.
 - `backend/backend/schemas/screening.py` — Pydantic API request schema.
 - `backend/backend/services/prenatal_cvd.py` — frontend-payload to model-input mapping and inference wrapper.
+- `backend/tests/test_agent_runtime.py` — deterministic agent runtime/provider/tool/subagent coverage.
 - `backend/tests/test_prenatal_cvd_api.py` — current backend API test coverage.
 - `backend/API_REFERENCES.md` — detailed request/response contract.
 
@@ -122,6 +124,7 @@ Run backend tests:
 ```bash
 cd /Users/benj/Documents/Coding/VenusHacks26/backend
 python -m pytest
+python -m pytest tests/test_agent_runtime.py
 python -m pytest tests/test_prenatal_cvd_api.py
 ```
 
@@ -129,6 +132,12 @@ Current API surface:
 
 - `GET /health`
 - `POST /api/screening/prenatal-cvd`
+
+Agent runtime guardrails:
+
+- `backend/backend/services/agents/` is a service-layer runtime package only; do not wire public routes there.
+- Provider selection is environment-driven via `AGENT_MODEL_PROVIDER`, `AGENT_MODEL`, provider API keys, and the optional OpenAI-compatible base URL settings.
+- Agent tools and subagents must remain explicitly allowlisted, deterministic tests must not call live LLM providers by default, and postpartum-specific behavior requires a model contract.
 
 Prenatal endpoint guardrails:
 
