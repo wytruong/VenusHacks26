@@ -29,8 +29,20 @@ public/heart-model/scene.bin
 
 graphify-out/
 
-# Backend local data
+# Backend local data and generated artifacts
 backend/data/
+backend/tmp/
+backend/archived/
+backend/**/__pycache__/
+backend/**/*.py[cod]
+backend/.pytest_cache/
+backend/.mypy_cache/
+backend/.ruff_cache/
+backend/**/.DS_Store
+backend/models/**
+!backend/models/cdc-natality/
+!backend/models/cdc-natality/default/
+!backend/models/cdc-natality/default/**
 
 # External local data
 /Users/benj/Documents/Coding/cardiac_mvp/data
