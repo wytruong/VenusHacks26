@@ -1,0 +1,42 @@
+{
+  "artifact_sha256": {
+    "calibrator.joblib": "11b83b104af1d959da3fc65c6603e07b9c765b177b151d0f242ced224dfd019e",
+    "combined_pipeline.joblib": "52710e595caf097fb252c9d478412fe53b6dc10b4d2c109378f4ada607a3cc16",
+    "fairness_report.csv": "ffea7f0953e19ca1d6f48a92a99f4f46a5ce37a04ccc2cdbecf571220fdc601b",
+    "feature_coefficients.csv": "b751a532a536aca52f8244ba8475760817d888b1ac86e6892a3fba27fe0bf222",
+    "feature_config.yaml": "92e00d03d10e9f246b998ffa7fd4ae8681c2003d0373f0a4d9beccc769cd5e14",
+    "feature_distributions.csv": "2202e3934284bc55e3c40cc14170b02b3820967ab6917b736ef265c9d4f12a85",
+    "feature_missingness.csv": "5ab5edeaf49aae28660ec9972eef197790cb9ec6adae559e92424ba46d58d0c3",
+    "leakage_audit.json": "f5e225e1a5be588a0828d842c90061d0d6b736f1f639a065ae7782db9484d40e",
+    "metrics_test.json": "fe8c34ac2d923e730b4f9066df05cabf497ef4665dbc1293ad81d0ce3da1fdcf",
+    "metrics_validation.json": "72abca2cead2b215abee9b3e9549950bb8c4b202ee055efe22a6ddfed9bc785d",
+    "model.joblib": "698a9022493a8896933311cd08d7ab545592c508137620479331624a5006807c",
+    "model_card.md": "5e940cbb68b4470f6d444ed278577471935bb29f5bc56e8276b3c96b419646ea",
+    "preprocessor.joblib": "4271aeb2cb6ee545a5171db8d6e9695c2719c5db4f735afcd012decdc1b15ed3",
+    "sample_predictions.csv": "b62872efce3811fd4cf5ccc8964a923d5dd63cdbd2300b4ed15160de04d6cb5f",
+    "score_distribution_report.csv": "0744ae6dced4c8bccbbe52cf8616992eb772ad141dc18fdf422ae323fb035896",
+    "thresholds.json": "baf636e281f564fcfd1aa0b0a134aad32a5caad576ad659d395d91269939f7df",
+    "tier_outcomes.csv": "7423f44531ce61fa5a8a287e029e2e6963bc9312e62b7821b739cb3f8e52f29a"
+  },
+  "artifact_timestamp": "2026-05-17T00:28:14.318633+00:00",
+  "feature_list": [
+    "mother_age",
+    "mother_bmi",
+    "prepregnancy_hypertension",
+    "prepregnancy_diabetes",
+    "prior_adverse_pregnancy_history",
+    "prior_live_births",
+    "smoking_before_or_during_pregnancy",
+    "multiple_gestation_known_or_suspected"
+  ],
+  "git_commit": "2b66066",
+  "metrics_files": [
+    "metrics_validation.json",
+    "metrics_test.json"
+  ],
+  "model_name": "prenatal_after_ultrasound_minimal8",
+  "model_version": "2026-05-16",
+  "target": "prenatal_cvd_followup_proxy_v1",
+  "threshold_file": "thresholds.json",
+  "training_data_path": "/Users/benj/Documents/Coding/cardiac_mvp/data/cdc-natality/derived/natality_2024_structured.csv"
+}

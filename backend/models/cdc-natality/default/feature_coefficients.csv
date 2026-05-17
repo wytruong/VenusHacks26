@@ -1,0 +1,9 @@
+feature,standardized_coefficient,odds_ratio,direction
+multiple_gestation_known_or_suspected,2.296641628787635,9.940741632369928,positive
+prior_adverse_pregnancy_history,0.8223506291921814,2.2758432184245225,positive
+smoking_before_or_during_pregnancy,0.42497345075556553,1.529549810732513,positive
+prepregnancy_diabetes,0.32994568600423985,1.3908925814783963,positive
+mother_bmi,0.30632991097424944,1.3584303937240334,positive
+prepregnancy_hypertension,0.21840535526255073,1.2440912643638595,positive
+mother_age,0.12656526237276763,1.1349235165608043,positive
+prior_live_births,-0.12597626041485582,0.8816357762025625,negative

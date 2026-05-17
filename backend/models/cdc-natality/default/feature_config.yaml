@@ -1,0 +1,181 @@
+model_name: prenatal_after_ultrasound_minimal8
+model_mode: prenatal
+data_path: data/cdc-natality/derived/natality_2024_structured.csv
+fallback_data_path: data/cdc-natality/derived/natality_2024_structured_sample.csv
+schema_path: data/cdc-natality/derived/natality_2024_schema.csv
+artifact_dir: models/cdc-natality/default
+target: prenatal_cvd_followup_proxy_v1
+target_recall: 0.85
+random_state: 42
+test_size: 0.15
+validation_size: 0.15
+raw_columns_needed:
+- mother_age
+- mother_bmi
+- mother_height_inches
+- prepregnancy_weight_lb
+- prepregnancy_hypertension
+- prepregnancy_diabetes
+- previous_preterm_birth
+- prior_dead_births
+- prior_live_births
+- cigarettes_before_pregnancy
+- cigarettes_trimester_1
+- cigarettes_trimester_2
+- plurality
+- gestational_hypertension
+- eclampsia
+- gestational_diabetes
+- severe_maternal_morbidity_proxy
+- obstetric_estimate_gestation_weeks
+- birth_weight_grams
+features:
+- mother_age
+- mother_bmi
+- prepregnancy_hypertension
+- prepregnancy_diabetes
+- prior_adverse_pregnancy_history
+- prior_live_births
+- smoking_before_or_during_pregnancy
+- multiple_gestation_known_or_suspected
+numeric_features:
+- mother_age
+- mother_bmi
+- prior_live_births
+binary_features:
+- prepregnancy_hypertension
+- prepregnancy_diabetes
+- prior_adverse_pregnancy_history
+- smoking_before_or_during_pregnancy
+- multiple_gestation_known_or_suspected
+audit_only_columns:
+- mother_race_6_code
+- mother_hispanic_origin_recode
+- mother_education_code
+- marital_status_code
+- payment_source_recode
+- wic_received
+- birth_year
+- mother_age
+protected_or_social_proxy_exclude:
+- mother_race_6_code
+- mother_hispanic_origin_recode
+- mother_education_code
+- father_education_code
+- marital_status_code
+- payment_source_recode
+- wic_received
+paternal_exclude:
+- father_age
+- father_education_code
+prenatal_care_access_exclude_v1:
+- month_prenatal_care_began
+- prenatal_care_began_recode
+- prenatal_visits
+- prenatal_visits_recode
+reproductive_tech_exclude_v1:
+- risk_factor_infertility_treatment
+- risk_factor_fertility_enhancing_drugs
+- risk_factor_assisted_reproductive_technology
+delivery_outcome_exclude:
+- birth_month
+- delivery_weight_lb
+- weight_gain_lb
+- weight_gain_recode
+- gestational_diabetes
+- gestational_hypertension
+- eclampsia
+- maternal_transfusion
+- ruptured_uterus
+- unplanned_hysterectomy
+- maternal_icu
+- presentation_at_delivery_code
+- delivery_route_code
+- trial_of_labor_attempted
+- apgar_5_min
+- apgar_10_min
+- infant_sex
+- obstetric_estimate_gestation_weeks
+- gestation_recode_3
+- birth_weight_grams
+- birth_weight_recode_14
+- birth_weight_recode_4
+- abnormal_condition_nicu
+- breastfed_at_discharge
+never_use_as_inputs:
+- pregnancy_cvd_risk_proxy
+- prenatal_cvd_followup_proxy_v1
+- any_diabetes
+- any_hypertensive_disorder
+- severe_maternal_morbidity_proxy
+- no_maternal_morbidity_reported
+forbidden_input_columns:
+- pregnancy_cvd_risk_proxy
+- prenatal_cvd_followup_proxy_v1
+- any_diabetes
+- any_hypertensive_disorder
+- severe_maternal_morbidity_proxy
+- no_maternal_morbidity_reported
+- gestational_diabetes
+- gestational_hypertension
+- eclampsia
+- maternal_transfusion
+- ruptured_uterus
+- unplanned_hysterectomy
+- maternal_icu
+- obstetric_estimate_gestation_weeks
+- gestation_recode_3
+- birth_weight_grams
+- birth_weight_recode_14
+- birth_weight_recode_4
+- abnormal_condition_nicu
+- apgar_5_min
+- apgar_10_min
+- breastfed_at_discharge
+- infant_sex
+comparison_variants:
+- name: minimal8_calibrated_logistic_regression
+  model_family: logistic
+  features:
+  - mother_age
+  - mother_bmi
+  - prepregnancy_hypertension
+  - prepregnancy_diabetes
+  - prior_adverse_pregnancy_history
+  - prior_live_births
+  - smoking_before_or_during_pregnancy
+  - multiple_gestation_known_or_suspected
+- name: minimal8_calibrated_lightgbm
+  model_family: lightgbm
+  features:
+  - mother_age
+  - mother_bmi
+  - prepregnancy_hypertension
+  - prepregnancy_diabetes
+  - prior_adverse_pregnancy_history
+  - prior_live_births
+  - smoking_before_or_during_pregnancy
+  - multiple_gestation_known_or_suspected
+- name: minimal7_no_multiple_calibrated_logistic_regression
+  model_family: logistic
+  features:
+  - mother_age
+  - mother_bmi
+  - prepregnancy_hypertension
+  - prepregnancy_diabetes
+  - prior_adverse_pregnancy_history
+  - prior_live_births
+  - smoking_before_or_during_pregnancy
+lightgbm:
+  objective: binary
+  n_estimators: 500
+  learning_rate: 0.03
+  num_leaves: 15
+  max_depth: 3
+  min_child_samples: 100
+  subsample: 0.8
+  colsample_bytree: 0.8
+  class_weight: balanced
+  random_state: 42
+  verbosity: -1
+model_version: '2026-05-16'
