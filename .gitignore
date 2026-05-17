@@ -29,5 +29,8 @@ public/heart-model/scene.bin
 
 graphify-out/
 
+# Backend local data
+backend/data/
+
 # External local data
 /Users/benj/Documents/Coding/cardiac_mvp/data
