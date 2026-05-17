@@ -371,7 +371,7 @@ function HeartMesh({
   })
 
   return (
-    <Center>
+    <Center ref={spinRef}>
       <group
         onPointerMove={(e) => {
           regressPerformance()
@@ -402,10 +402,8 @@ function HeartMesh({
           e.stopPropagation()
         }}
       >
-        <group ref={spinRef}>
-          <primitive object={gltf.scene} />
-          <HeartCallouts anchors={calloutAnchors} />
-        </group>
+        <primitive object={gltf.scene} />
+        <HeartCallouts anchors={calloutAnchors} />
       </group>
     </Center>
   )
@@ -458,7 +456,7 @@ export default function HeartModel({
           />
         </Suspense>
         <AdaptiveDpr />
-        <OrbitControls makeDefault />
+        <OrbitControls makeDefault enablePan={false} target={[0, 0, 0]} />
       </Canvas>
     </div>
   )
