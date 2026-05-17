@@ -210,6 +210,41 @@ const ecgUploadZoneStyle: CSSProperties = {
   backgroundColor: 'rgba(255,255,255,0.05)',
 }
 
+const profilePanelGlassInputStyle: CSSProperties = {
+  width: '100%',
+  boxSizing: 'border-box',
+  border: '1px solid #F4C2C2',
+  borderRadius: 10,
+  backgroundColor: 'rgba(255,255,255,0.08)',
+  color: '#FDF0F0',
+  fontFamily: dmSans,
+  fontSize: 11,
+  padding: '8px 10px',
+  outline: 'none',
+}
+
+function ProfileCameraGlyph({
+  className,
+  style,
+}: {
+  className?: string
+  style?: CSSProperties
+}) {
+  return (
+    <svg
+      className={className}
+      style={style}
+      width={20}
+      height={20}
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden
+    >
+      <path d="M9 4h6l1.83 2H20a2 2 0 012 2v10a2 2 0 01-2 2H4a2 2 0 01-2-2V8a2 2 0 012-2h3.17L9 4zm3 13a4 4 0 100-8 4 4 0 000 8z" />
+    </svg>
+  )
+}
+
 function EcgHeartGlyph({ className }: { className?: string }) {
   return (
     <svg
@@ -326,6 +361,31 @@ export default function App() {
     useState(false)
   const [ecgReadingLoading, setEcgReadingLoading] = useState(false)
 
+  const profileAvatarInputRef = useRef<HTMLInputElement>(null)
+  const [profileAvatarUrl, setProfileAvatarUrl] = useState<string | null>(null)
+  const [profileDisplayName, setProfileDisplayName] = useState('')
+  const [profileAge, setProfileAge] = useState('')
+  const [profileWeeksPregnant, setProfileWeeksPregnant] = useState('')
+  const [profileWeeksPostpartum, setProfileWeeksPostpartum] = useState('')
+  const [profileMedications, setProfileMedications] = useState('')
+  const [profileAllergies, setProfileAllergies] = useState('')
+  const [profileLatestVisit, setProfileLatestVisit] = useState('')
+
+  const revokeProfileAvatar = useCallback(() => {
+    setProfileAvatarUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev)
+      return null
+    })
+    const input = profileAvatarInputRef.current
+    if (input) input.value = ''
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (profileAvatarUrl) URL.revokeObjectURL(profileAvatarUrl)
+    }
+  }, [profileAvatarUrl])
+
   const revokeDoctorNotePreview = useCallback(() => {
     setDoctorNotePreviewUrl((prev) => {
       if (prev) URL.revokeObjectURL(prev)
@@ -359,6 +419,15 @@ export default function App() {
     const file = e.target.files?.[0]
     if (!file?.type.startsWith('image/')) return
     setDoctorNotePreviewUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev)
+      return URL.createObjectURL(file)
+    })
+  }
+
+  const onProfileAvatarChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file?.type.startsWith('image/')) return
+    setProfileAvatarUrl((prev) => {
       if (prev) URL.revokeObjectURL(prev)
       return URL.createObjectURL(file)
     })
@@ -529,10 +598,20 @@ export default function App() {
     }
     setPregnancyRiskAnalyzing(false)
     setPregnancyRiskResult(null)
+    revokeProfileAvatar()
+    setProfileDisplayName('')
+    setProfileAge('')
+    setProfileWeeksPregnant('')
+    setProfileWeeksPostpartum('')
+    setProfileMedications('')
+    setProfileAllergies('')
+    setProfileLatestVisit('')
   }
 
   const showEditProfileButton =
     heartReveal && !showPregnancyOnboarding
+
+  const showProfilePanel = heartReveal && !showPregnancyOnboarding
 
   const showLandingCta =
     showCta &&
@@ -564,6 +643,167 @@ export default function App() {
         >
           Edit profile
         </button>
+      ) : null}
+
+      {showProfilePanel ? (
+        <aside
+          className="pointer-events-auto fixed left-0 top-0 z-[34] hidden h-full min-h-0 w-[220px] flex-col overflow-hidden md:flex"
+          style={{
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
+            backgroundColor: 'rgba(255,255,255,0.06)',
+            borderRight: '1px solid rgba(255,255,255,0.1)',
+            fontFamily: dmSans,
+          }}
+          aria-label="Profile"
+        >
+          <div className="flex min-h-0 flex-1 flex-col">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-3 pt-16">
+            <input
+              ref={profileAvatarInputRef}
+              type="file"
+              accept="image/*"
+              className="sr-only"
+              aria-hidden
+              tabIndex={-1}
+              onChange={onProfileAvatarChange}
+            />
+            <button
+              type="button"
+              className="mx-auto flex h-[56px] w-[56px] shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-[#F4C2C2] bg-white/[0.10] outline-none transition-opacity hover:opacity-95 focus-visible:ring-2 focus-visible:ring-[#F4C2C2]/60"
+              aria-label="Upload profile photo"
+              onClick={() => profileAvatarInputRef.current?.click()}
+            >
+              {profileAvatarUrl ? (
+                <img
+                  src={profileAvatarUrl}
+                  alt=""
+                  className="h-full w-full object-cover"
+                  draggable={false}
+                />
+              ) : (
+                <ProfileCameraGlyph className="text-[#9B7B7B]" />
+              )}
+            </button>
+
+            <input
+              type="text"
+              value={profileDisplayName}
+              onChange={(e) => setProfileDisplayName(e.target.value)}
+              placeholder="Your name"
+              className="mt-4 placeholder:text-[#D4B8B8]"
+              style={profilePanelGlassInputStyle}
+            />
+
+            <input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              value={profileAge}
+              onChange={(e) => setProfileAge(e.target.value)}
+              placeholder="Age"
+              className="mt-2 placeholder:text-[#D4B8B8] tabular-nums"
+              style={profilePanelGlassInputStyle}
+            />
+
+            {pregnancyMode === 'prenatal' ? (
+              <input
+                type="number"
+                inputMode="numeric"
+                min={0}
+                value={profileWeeksPregnant}
+                onChange={(e) => setProfileWeeksPregnant(e.target.value)}
+                placeholder="e.g. 28 weeks"
+                className="mt-2 placeholder:text-[#D4B8B8] tabular-nums"
+                style={profilePanelGlassInputStyle}
+              />
+            ) : null}
+
+            {pregnancyMode === 'postpartum' ? (
+              <input
+                type="number"
+                inputMode="numeric"
+                min={0}
+                value={profileWeeksPostpartum}
+                onChange={(e) => setProfileWeeksPostpartum(e.target.value)}
+                placeholder="e.g. 6 weeks"
+                className="mt-2 placeholder:text-[#D4B8B8] tabular-nums"
+                style={profilePanelGlassInputStyle}
+              />
+            ) : null}
+
+            <div
+              className="mb-1.5 mt-4 font-normal uppercase tracking-[0.14em] text-[#F4C2C2]"
+              style={{ fontSize: 10 }}
+            >
+              Current medications
+            </div>
+            <textarea
+              value={profileMedications}
+              onChange={(e) => setProfileMedications(e.target.value)}
+              placeholder="List any medications you're taking"
+              rows={2}
+              className="placeholder:text-[#D4B8B8]"
+              style={{
+                ...profilePanelGlassInputStyle,
+                height: 60,
+                minHeight: 60,
+                resize: 'none',
+              }}
+            />
+
+            <div
+              className="mb-1.5 mt-3 font-normal uppercase tracking-[0.14em] text-[#F4C2C2]"
+              style={{ fontSize: 10 }}
+            >
+              Allergies
+            </div>
+            <textarea
+              value={profileAllergies}
+              onChange={(e) => setProfileAllergies(e.target.value)}
+              placeholder="List any known allergies"
+              rows={2}
+              className="placeholder:text-[#D4B8B8]"
+              style={{
+                ...profilePanelGlassInputStyle,
+                height: 40,
+                minHeight: 40,
+                resize: 'none',
+              }}
+            />
+
+            <div
+              className="mb-1.5 mt-3 font-normal uppercase tracking-[0.14em] text-[#F4C2C2]"
+              style={{ fontSize: 10 }}
+            >
+              Latest doctor visit
+            </div>
+            <textarea
+              value={profileLatestVisit}
+              onChange={(e) => setProfileLatestVisit(e.target.value)}
+              placeholder="Notes from your last appointment"
+              rows={2}
+              className="placeholder:text-[#D4B8B8]"
+              style={{
+                ...profilePanelGlassInputStyle,
+                height: 60,
+                minHeight: 60,
+                resize: 'none',
+              }}
+            />
+            </div>
+
+            <footer className="mt-auto shrink-0 px-3 pb-6 pt-4 text-center font-normal leading-snug text-[#9B7B7B]">
+              <div style={{ fontFamily: dmSans, fontSize: 9 }}>VenusHacks 2026</div>
+              <div
+                className="mt-0.5"
+                style={{ fontFamily: dmSans, fontSize: 9 }}
+              >
+                My Truong · Mary Nguyen · Harry Tran · Ben Nguyen
+              </div>
+            </footer>
+          </div>
+        </aside>
       ) : null}
 
       <motion.div
@@ -1286,7 +1526,10 @@ export default function App() {
           <motion.div
             key="doctor-note-ocr-insight"
             className="pointer-events-none fixed top-1/2 z-[45] max-h-[88vh] -translate-y-1/2 overflow-y-auto"
-            style={{ right: 24, width: 'min(300px, calc(100vw - 48px))' }}
+            style={{
+              right: 24,
+              width: 'max(280px, min(380px, calc(100vw - 48px)))',
+            }}
             initial={{ opacity: 0, x: 14 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 10 }}
@@ -1295,7 +1538,7 @@ export default function App() {
             <div
               className="pointer-events-auto"
               style={{
-                padding: '20px 22px',
+                padding: '24px 28px',
                 borderRadius: 16,
                 backdropFilter: 'blur(12px)',
                 WebkitBackdropFilter: 'blur(12px)',
@@ -1309,28 +1552,28 @@ export default function App() {
                 <span
                   style={{
                     color: '#FDF0F0',
-                    fontSize: 14,
-                    fontWeight: 600,
+                    fontSize: 18,
+                    fontWeight: 700,
                   }}
                 >
                   {doctorNoteOcrResult.condition}
                 </span>
                 <span
-                  className="rounded-full border border-red-400/40 bg-red-500/[0.16] px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.1em] text-[#e8a0a0]"
+                  className="rounded-full border border-red-400/40 bg-red-500/[0.16] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.1em] text-[#e8a0a0]"
                   style={{ fontFamily: dmSans }}
                 >
                   {doctorNoteOcrResult.risk}
                 </span>
               </div>
               <p
-                className="mt-1 font-normal leading-snug text-[#9B7B7B]"
-                style={{ fontFamily: dmSans, fontSize: 10 }}
+                className="mt-1 font-bold leading-snug text-[#FDF0F0]"
+                style={{ fontFamily: dmSans, fontSize: 18 }}
               >
                 {doctorNoteOcrResult.region}
               </p>
               <p
-                className="mt-3 font-normal leading-snug text-[#9B7B7B]"
-                style={{ fontFamily: dmSans, fontSize: 11, lineHeight: 1.45 }}
+                className="mt-3 font-normal text-[#E8D5D5]"
+                style={{ fontFamily: dmSans, fontSize: 13, lineHeight: 1.6 }}
               >
                 {doctorNoteOcrResult.description}
               </p>
@@ -1352,7 +1595,7 @@ export default function App() {
                 </div>
                 <p
                   className="mt-2 font-normal leading-snug text-[#FDF0F0]"
-                  style={{ fontFamily: dmSans, fontSize: 11, lineHeight: 1.45 }}
+                  style={{ fontFamily: dmSans, fontSize: 12, lineHeight: 1.5 }}
                 >
                   {doctorNoteOcrResult.doctorScript}
                 </p>
@@ -1360,9 +1603,9 @@ export default function App() {
 
               <div
                 style={{
-                  marginTop: 14,
-                  color: '#FDF0F0',
-                  fontSize: 11,
+                  marginTop: 16,
+                  color: '#F4C2C2',
+                  fontSize: 13,
                   fontWeight: 600,
                   letterSpacing: '0.02em',
                 }}
@@ -1371,12 +1614,12 @@ export default function App() {
               </div>
               <ul
                 style={{
-                  margin: '6px 0 0',
+                  margin: '8px 0 0',
                   paddingLeft: 18,
-                  color: '#9B7B7B',
-                  fontSize: 11,
+                  color: '#D4B8B8',
+                  fontSize: 12,
                   fontWeight: 400,
-                  lineHeight: 1.45,
+                  lineHeight: 1.5,
                 }}
               >
                 {doctorNoteOcrResult.questions.map((q) => (
@@ -1472,7 +1715,10 @@ export default function App() {
           <motion.div
             key="pregnancy-risk-insight"
             className="pointer-events-none fixed top-1/2 z-[45] max-h-[88vh] -translate-y-1/2 overflow-y-auto"
-            style={{ right: 24, width: 'min(300px, calc(100vw - 48px))' }}
+            style={{
+              right: 24,
+              width: 'max(280px, min(380px, calc(100vw - 48px)))',
+            }}
             initial={{ opacity: 0, x: 14 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 10 }}
@@ -1481,7 +1727,7 @@ export default function App() {
             <div
               className="pointer-events-auto"
               style={{
-                padding: '20px 22px',
+                padding: '24px 28px',
                 borderRadius: 16,
                 backdropFilter: 'blur(12px)',
                 WebkitBackdropFilter: 'blur(12px)',
@@ -1495,28 +1741,28 @@ export default function App() {
                 <span
                   style={{
                     color: '#FDF0F0',
-                    fontSize: 14,
-                    fontWeight: 600,
+                    fontSize: 18,
+                    fontWeight: 700,
                   }}
                 >
                   Your risk profile
                 </span>
                 <span
-                  className={`rounded-full border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.1em] ${riskTierBadgeClass(pregnancyRiskResult.risk_tier)}`}
+                  className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.1em] ${riskTierBadgeClass(pregnancyRiskResult.risk_tier)}`}
                   style={{ fontFamily: dmSans }}
                 >
                   {pregnancyRiskResult.risk_tier.toUpperCase()}
                 </span>
               </div>
               <p
-                className="mt-1 font-normal leading-snug text-[#9B7B7B]"
-                style={{ fontFamily: dmSans, fontSize: 10 }}
+                className="mt-1 font-normal text-[#E8D5D5]"
+                style={{ fontFamily: dmSans, fontSize: 13, lineHeight: 1.6 }}
               >
                 Assessment mode: {pregnancyRiskResult.model_mode}
               </p>
               <p
-                className="mt-2 font-normal leading-snug text-[#9B7B7B]"
-                style={{ fontFamily: dmSans, fontSize: 11 }}
+                className="mt-2 font-normal text-[#E8D5D5]"
+                style={{ fontFamily: dmSans, fontSize: 13, lineHeight: 1.6 }}
               >
                 Follow-up relevance index:{' '}
                 {Math.round(
@@ -1528,9 +1774,9 @@ export default function App() {
 
               <div
                 style={{
-                  marginTop: 14,
-                  color: '#FDF0F0',
-                  fontSize: 11,
+                  marginTop: 16,
+                  color: '#F4C2C2',
+                  fontSize: 13,
                   fontWeight: 600,
                   letterSpacing: '0.02em',
                 }}
@@ -1539,12 +1785,12 @@ export default function App() {
               </div>
               <ul
                 style={{
-                  margin: '6px 0 0',
+                  margin: '8px 0 0',
                   paddingLeft: 18,
-                  color: '#9B7B7B',
-                  fontSize: 11,
+                  color: '#D4B8B8',
+                  fontSize: 12,
                   fontWeight: 400,
-                  lineHeight: 1.45,
+                  lineHeight: 1.5,
                 }}
               >
                 {pregnancyRiskResult.main_contributing_factors.map((f) => (
@@ -1571,7 +1817,7 @@ export default function App() {
                 </div>
                 <p
                   className="mt-2 font-normal leading-snug text-[#FDF0F0]"
-                  style={{ fontFamily: dmSans, fontSize: 11, lineHeight: 1.45 }}
+                  style={{ fontFamily: dmSans, fontSize: 12, lineHeight: 1.5 }}
                 >
                   {pregnancyRiskResult.recommended_followup_priority}
                 </p>
@@ -1581,51 +1827,54 @@ export default function App() {
         ) : meshInfo ? (
           <motion.div
             key={`${meshInfo.label}-${meshInfo.description}-${meshInfo.doctorQuestions[0]}`}
-            className="pointer-events-none fixed top-1/2 z-[45] -translate-y-1/2"
-            style={{ right: 32 }}
+            className="pointer-events-none fixed top-1/2 z-[45] max-h-[88vh] -translate-y-1/2 overflow-y-auto"
+            style={{
+              right: 24,
+              width: 'max(280px, min(380px, calc(100vw - 48px)))',
+            }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.45, ease: easeSoftOut }}
           >
             <div
+              className="pointer-events-auto"
               style={{
-                maxWidth: 280,
-                padding: '20px 24px',
+                padding: '24px 28px',
                 borderRadius: 16,
                 backdropFilter: 'blur(12px)',
                 WebkitBackdropFilter: 'blur(12px)',
                 backgroundColor: 'rgba(255,255,255,0.08)',
                 border: '1px solid rgba(255,255,255,0.2)',
-                fontFamily: '"DM Sans", system-ui, sans-serif',
+                fontFamily: dmSans,
                 textAlign: 'left',
               }}
             >
               <div
                 style={{
                   color: '#FDF0F0',
-                  fontSize: 14,
-                  fontWeight: 600,
+                  fontSize: 18,
+                  fontWeight: 700,
                 }}
               >
                 {meshInfo.label}
               </div>
               <div
                 style={{
-                  marginTop: 6,
-                  color: '#9B7B7B',
-                  fontSize: 11,
+                  marginTop: 8,
+                  color: '#E8D5D5',
+                  fontSize: 13,
                   fontWeight: 400,
-                  lineHeight: 1.45,
+                  lineHeight: 1.6,
                 }}
               >
                 {meshInfo.description}
               </div>
               <div
                 style={{
-                  marginTop: 12,
-                  color: '#FDF0F0',
-                  fontSize: 11,
+                  marginTop: 16,
+                  color: '#F4C2C2',
+                  fontSize: 13,
                   fontWeight: 600,
                   letterSpacing: '0.02em',
                 }}
@@ -1634,12 +1883,12 @@ export default function App() {
               </div>
               <ul
                 style={{
-                  margin: '6px 0 0',
+                  margin: '8px 0 0',
                   paddingLeft: 18,
-                  color: '#9B7B7B',
-                  fontSize: 11,
+                  color: '#D4B8B8',
+                  fontSize: 12,
                   fontWeight: 400,
-                  lineHeight: 1.45,
+                  lineHeight: 1.5,
                 }}
               >
                 {meshInfo.doctorQuestions.map((q) => (
