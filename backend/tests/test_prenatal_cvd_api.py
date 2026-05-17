@@ -41,6 +41,7 @@ def test_frontend_payload_maps_to_model_input() -> None:
         "prior_live_births": 1,
         "smoking_before_or_during_pregnancy": 0,
         "multiple_gestation_known_or_suspected": 0,
+        "previous_preterm_birth": 1,
     }
 
 
