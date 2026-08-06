@@ -5,6 +5,9 @@
 Built at VenusHacks 2026 — Track 3: Heart Health at Warp Speed  
 Sponsored by the California Office of the Surgeon General
 
+## Deployed link:
+ heartwise-venushacks26.netlify.app
+
 ## The Problem
 
 Heart disease is the #1 killer of women in California. Pregnant and postpartum women are the most vulnerable and the least likely to receive proper cardiac screening. When they do receive a diagnosis, medical terminology creates a gap between what the doctor said and what the patient understood. That gap costs lives.
