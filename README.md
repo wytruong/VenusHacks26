@@ -6,7 +6,7 @@ Built at VenusHacks 2026 — Track 3: Heart Health at Warp Speed
 Sponsored by the California Office of the Surgeon General
 
 ## Deployed link:
- heartwise-venushacks26.netlify.app
+[Heartwise](https://heartwise-venushacks26.netlify.app)
 
 ## The Problem
 
